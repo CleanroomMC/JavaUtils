@@ -1,0 +1,78 @@
+plugins {
+    id 'java'
+}
+
+group = 'com.cleanroommc'
+version = '1.0.0'
+
+java {
+    toolchain {
+        sourceCompatibility = JavaVersion.VERSION_1_8
+        targetCompatibility = JavaVersion.VERSION_1_8
+        languageVersion = JavaLanguageVersion.of(8)
+    }
+}
+
+sourceSets {
+    api
+    checker
+    main {
+        compileClasspath += api.output
+        runtimeClasspath += api.output
+    }
+    test {
+        compileClasspath += api.output
+        runtimeClasspath += api.output
+
+        compileClasspath += checker.output
+        runtimeClasspath += checker.output
+    }
+}
+
+repositories {
+    mavenCentral()
+    maven {
+        name 'CleanroomMC'
+        url 'https://maven.cleanroommc.com'
+    }
+}
+
+dependencies {
+    implementation 'com.cleanroommc:platform-utils:1.0.0'
+
+    testImplementation platform('org.junit:junit-bom:5.10.0')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+}
+
+test {
+    useJUnitPlatform()
+}
+
+tasks.register('testCommonVendorsAndLTSVersions') {
+    group 'verification'
+}
+
+def targetVendors = [
+        (JvmVendorSpec.AZUL): ["Azul", 11, 17, 21],
+        (JvmVendorSpec.BELLSOFT): ["Bellsoft", 11, 17, 21],
+        (JvmVendorSpec.GRAAL_VM): ["Graal", 11, 17, 21],
+        (JvmVendorSpec.IBM): ["OpenJ9", 11, 17, 21],
+        (JvmVendorSpec.MICROSOFT): ["Microsoft", 11, 17, 21],
+]
+
+targetVendors.each { spec, info ->
+    for (int i = 1; i < info.size(); i++) {
+        Integer javaVersion = info[i]
+        def testTask = tasks.register("test${info[0]}_${javaVersion}", Test) { Test test ->
+            group 'verification'
+            test.javaLauncher = javaToolchains.launcherFor { JavaToolchainSpec toolchain ->
+                toolchain.languageVersion = JavaLanguageVersion.of(javaVersion)
+                toolchain.vendor = spec
+            }
+            test.useJUnitPlatform()
+        }
+        tasks.named('testCommonVendorsAndLTSVersions').configure {
+            dependsOn testTask
+        }
+    }
+}
