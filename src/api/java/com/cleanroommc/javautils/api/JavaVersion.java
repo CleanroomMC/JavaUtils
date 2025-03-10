@@ -1,6 +1,7 @@
 package com.cleanroommc.javautils.api;
 
 import java.math.BigInteger;
+import java.util.Arrays;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -87,17 +88,54 @@ public class JavaVersion implements Comparable<JavaVersion> {
     }
 
     @Override
-    public int compareTo(JavaVersion other) {
-        return compare(other, false);
-    }
-
-    @Override
     public String toString() {
         return rawVersionString;
     }
 
+    @Override
+    public int hashCode() {
+        int h = 1;
+        int p = 17;
+        h = p * h + Arrays.hashCode(this.version);
+        if (this.pre != null) {
+            h = p * h + this.pre.hashCode();
+        }
+        if (this.build != null) {
+            h = p * h + this.build.hashCode();
+        }
+        if (this.optional != null) {
+            h = p * h + this.optional.hashCode();
+        }
+        return h;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (!(obj instanceof JavaVersion)) {
+            return false;
+        }
+        JavaVersion other = (JavaVersion) obj;
+        return this.compare(other, false) == 0;
+    }
+
+    @Override
+    public int compareTo(JavaVersion other) {
+        return compare(other, false);
+    }
+
     public int compareToIgnoreOptional(JavaVersion other) {
         return compare(other, true);
+    }
+
+    public boolean equalsIgnoreOptional(Object obj) {
+        if (this == obj) {
+            return true;
+        }
+        if (!(obj instanceof JavaVersion)) {
+            return false;
+        }
+        JavaVersion other = (JavaVersion) obj;
+        return this.compare(other, true) == 0;
     }
 
     private int compare(JavaVersion other, boolean ignoreOptional) {
