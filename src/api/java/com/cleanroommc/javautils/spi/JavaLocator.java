@@ -2,27 +2,35 @@ package com.cleanroommc.javautils.spi;
 
 import com.cleanroommc.javautils.api.JavaInstall;
 
-import java.util.List;
-import java.util.ServiceLoader;
-import java.util.Spliterator;
-import java.util.Spliterators;
-import java.util.stream.Stream;
-import java.util.stream.StreamSupport;
+import java.util.*;
+import java.util.function.Predicate;
 
 public interface JavaLocator {
 
-    static Stream<JavaLocator> providers() {
-        return StreamSupport.stream(Spliterators.spliteratorUnknownSize(ServiceLoader.load(JavaLocator.class).iterator(), Spliterator.DISTINCT | Spliterator.NONNULL), false);
+    static List<JavaLocator> locators() {
+        List<JavaLocator> locators = new ArrayList<>();
+        ServiceLoader.load(JavaLocator.class).iterator().forEachRemaining(locators::add);
+        return locators;
     }
 
-    static <T extends JavaLocator> T provider(Class<T> clazz) {
-        return (T) providers().filter(clazz::isInstance).findFirst().get();
+    static <T extends JavaLocator> Optional<T> provider(Class<T> clazz) {
+        return (Optional<T>) locators().stream().filter(clazz::isInstance).findFirst();
     }
 
-    JavaInstall get(int majorVersion);
-
-    boolean has(int majorVersion);
+    List<JavaInstall> get(Predicate<JavaInstall> predicate);
 
     List<JavaInstall> all();
+
+    default List<JavaInstall> get(int featureVersion) {
+        return this.get(javaInstall -> javaInstall.version().feature() == featureVersion);
+    }
+
+    default boolean has(int featureVersion) {
+        return this.get(featureVersion) != null;
+    }
+
+    default boolean has(Predicate<JavaInstall> predicate) {
+        return this.get(predicate) != null;
+    }
 
 }

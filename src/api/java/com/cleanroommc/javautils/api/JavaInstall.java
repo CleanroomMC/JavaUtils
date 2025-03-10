@@ -6,9 +6,9 @@ public interface JavaInstall {
 
     File home();
 
-    int majorVersion();
+    File executable();
 
-    String version();
+    JavaVersion version();
 
     String vendor();
 

@@ -15,7 +15,6 @@ java {
 
 sourceSets {
     api
-    checker
     main {
         compileClasspath += api.output
         runtimeClasspath += api.output
@@ -23,9 +22,6 @@ sourceSets {
     test {
         compileClasspath += api.output
         runtimeClasspath += api.output
-
-        compileClasspath += checker.output
-        runtimeClasspath += checker.output
     }
 }
 

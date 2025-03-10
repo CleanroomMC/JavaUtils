@@ -1,30 +1,31 @@
 package com.cleanroommc.javautils;
 
 import com.cleanroommc.javautils.api.JavaInstall;
+import com.cleanroommc.javautils.api.JavaVersion;
 import com.cleanroommc.platformutils.Platform;
 
 import java.io.File;
 
-public class JavaInstallImpl implements JavaInstall {
+class JavaInstallImpl implements JavaInstall {
 
-    public static JavaInstall of(File home, String version, String vendor) {
-        return new JavaInstallImpl(home, version, vendor);
+    static JavaInstall of(File executable, String version, String vendor) {
+        return new JavaInstallImpl(executable, version, vendor);
     }
 
-    private final File home, javac;
-    private final String version, vendor;
-    private final int majorVersion;
+    private final File home, java, javac;
+    private final String vendor;
+    private final JavaVersion version;
 
     private JavaInstallImpl(File home, String version, String vendor) {
         this.home = home;
         String executableExtension = Platform.current().isWindows() ? ".exe" : "";
-        this.javac = new File(home, "bin/javac" + executableExtension);
-        this.version = version;
+        this.java = new File(this.home, "bin/java" + executableExtension);
+        this.javac = new File(this.home, "bin/javac" + executableExtension);
         this.vendor = vendor;
-        this.majorVersion = JavaVersion.parse(version).major();
+        this.version = JavaVersion.parse(version);
 
-        if (!new File(home, "bin/java" + executableExtension).exists()) {
-            throw new IllegalStateException("Java Install is missing Java Executable!");
+        if (!this.java.exists()) {
+            throw new IllegalStateException("JavaInstall is missing Java Executable!");
         }
     }
 
@@ -34,12 +35,12 @@ public class JavaInstallImpl implements JavaInstall {
     }
 
     @Override
-    public int majorVersion() {
-        return majorVersion;
+    public File executable() {
+        return java;
     }
 
     @Override
-    public String version() {
+    public JavaVersion version() {
         return version;
     }
 
