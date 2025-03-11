@@ -12,10 +12,10 @@ public class JavaHomeJavaLocator extends AbstractJavaLocator {
     protected List<JavaInstall> initialize() {
         String javaHome = null;
         try {
-            javaHome = System.getenv("JAVA_HOME");
+            javaHome = env("JAVA_HOME");
         } catch (SecurityException ignore) { }
         if (javaHome == null) {
-            javaHome = System.getProperty("java.home");
+            javaHome = property("java.home");
             if (javaHome == null) {
                 return Collections.emptyList();
             }

@@ -10,6 +10,22 @@ import java.util.stream.Collectors;
 
 public abstract class AbstractJavaLocator implements JavaLocator {
 
+    protected static String env(String key) {
+        return System.getenv(key);
+    }
+
+    protected static String property(String key) {
+        return System.getProperty(key);
+    }
+
+    protected static String userHome() {
+        return property("user.home");
+    }
+
+    protected static String userHome(String directory) {
+        return userHome() + "/" + directory;
+    }
+
     private boolean initialized;
     private List<JavaInstall> javaInstalls;
 

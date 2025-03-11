@@ -12,9 +12,13 @@ public class GradleProvisionedJavaLocator extends AbstractJavaLocator {
 
     @Override
     protected List<JavaInstall> initialize() {
-        String gradleUserHome = System.getenv("GRADLE_USER_HOME");
+        String gradleUserHome = env("GRADLE_USER_HOME");
         if (gradleUserHome == null) {
-            return Collections.emptyList();
+            File gradleUserHomeCandidate = new File(userHome(".gradle"));
+            if (!gradleUserHomeCandidate.exists() || gradleUserHomeCandidate.isFile()) {
+                return Collections.emptyList();
+            }
+            gradleUserHome = gradleUserHomeCandidate.getAbsolutePath();
         }
         File jdksDir = new File(gradleUserHome + "/jdks");
         if (!jdksDir.exists() || jdksDir.isFile()) {
