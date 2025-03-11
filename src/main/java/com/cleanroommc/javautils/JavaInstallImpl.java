@@ -59,4 +59,17 @@ class JavaInstallImpl implements JavaInstall {
         return this.vendor() + (this.jdk() ? " JDK" : "JRE") + " v" + this.version() + " @ " + this.home().getAbsolutePath();
     }
 
+    @Override
+    public int hashCode() {
+        return this.home.hashCode();
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (obj instanceof JavaInstall) {
+            return this.home().getAbsolutePath().equals(((JavaInstall) obj).home().getAbsolutePath());
+        }
+        return false;
+    }
+
 }

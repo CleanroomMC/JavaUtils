@@ -17,11 +17,11 @@ public interface JavaLocator {
         return (Optional<T>) locators().stream().filter(clazz::isInstance).findFirst();
     }
 
-    List<JavaInstall> get(Predicate<JavaInstall> predicate);
+    Set<JavaInstall> get(Predicate<JavaInstall> predicate);
 
-    List<JavaInstall> all();
+    Set<JavaInstall> all();
 
-    default List<JavaInstall> get(int featureVersion) {
+    default Set<JavaInstall> get(int featureVersion) {
         return this.get(javaInstall -> javaInstall.version().feature() == featureVersion);
     }
 

@@ -4,7 +4,9 @@ import com.cleanroommc.javautils.api.JavaInstall;
 import com.cleanroommc.javautils.spi.JavaLocator;
 
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
@@ -27,26 +29,28 @@ public abstract class AbstractJavaLocator implements JavaLocator {
     }
 
     private boolean initialized;
-    private List<JavaInstall> javaInstalls;
+    private Set<JavaInstall> javaInstalls;
 
     protected abstract List<JavaInstall> initialize();
 
     @Override
-    public List<JavaInstall> get(Predicate<JavaInstall> predicate) {
+    public Set<JavaInstall> get(Predicate<JavaInstall> predicate) {
         this.init();
-        return this.javaInstalls.stream().filter(predicate).collect(Collectors.toList());
+        return this.javaInstalls.stream().filter(predicate).collect(Collectors.toSet());
     }
 
     @Override
-    public List<JavaInstall> all() {
+    public Set<JavaInstall> all() {
         this.init();
-        return Collections.unmodifiableList(this.javaInstalls);
+        return Collections.unmodifiableSet(this.javaInstalls);
     }
 
     private void init() {
         if (!this.initialized) {
             this.initialized = true;
-            this.javaInstalls = this.initialize();
+            List<JavaInstall> resolvedJavaInstalls = this.initialize();
+
+            this.javaInstalls = new HashSet<>(resolvedJavaInstalls);
         }
     }
 
