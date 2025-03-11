@@ -7,8 +7,8 @@ import com.cleanroommc.javautils.spi.JavaLocator;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 public class JavaLocatorTests {
 
@@ -16,7 +16,7 @@ public class JavaLocatorTests {
     public void javaHome() {
         Optional<JavaHomeJavaLocator> locator = JavaLocator.provider(JavaHomeJavaLocator.class);
         Assertions.assertTrue(locator.isPresent());
-        List<JavaInstall> javaInstalls = locator.get().all();
+        Set<JavaInstall> javaInstalls = locator.get().all();
         Assertions.assertFalse(javaInstalls.isEmpty());
     }
 
@@ -24,7 +24,7 @@ public class JavaLocatorTests {
     public void gradleUserHome() {
         Optional<GradleProvisionedJavaLocator> locator = JavaLocator.provider(GradleProvisionedJavaLocator.class);
         Assertions.assertTrue(locator.isPresent());
-        List<JavaInstall> javaInstalls = locator.get().all();
+        Set<JavaInstall> javaInstalls = locator.get().all();
         Assertions.assertFalse(javaInstalls.isEmpty());
     }
 
