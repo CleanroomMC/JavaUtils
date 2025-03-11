@@ -1,1 +1,2 @@
 com.cleanroommc.javautils.locators.JavaHomeJavaLocator
+com.cleanroommc.javautils.locators.GradleProvisionedJavaLocator
