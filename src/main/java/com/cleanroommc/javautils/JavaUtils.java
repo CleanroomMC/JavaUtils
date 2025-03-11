@@ -1,6 +1,7 @@
 package com.cleanroommc.javautils;
 
 import com.cleanroommc.javautils.api.JavaInstall;
+import com.cleanroommc.javautils.checker.JavaChecker;
 import com.cleanroommc.platformutils.Platform;
 
 import java.io.*;
@@ -63,7 +64,9 @@ public final class JavaUtils {
         List<String> arguments = new ArrayList<>();
         ProcessBuilder processBuilder = new ProcessBuilder(arguments); // ProcessBuilder doesn't copy
 
-        File workingJar = currentJarLocation();
+        // File workingJar = currentJarLocation();
+        // File workingDir = workingJar.getParentFile();
+        File workingJar = jarLocationOf(JavaChecker.class);
         File workingDir = workingJar.getParentFile();
         processBuilder.directory(workingDir);
 
@@ -96,11 +99,11 @@ public final class JavaUtils {
 
         try {
             Process process = processBuilder.start();
-            BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+            BufferedReader inReader = new BufferedReader(new InputStreamReader(process.getInputStream()));
 
-            String line;
-            while ((line = reader.readLine()) != null) {
-                output.add(line);
+            String inLine;
+            while ((inLine = inReader.readLine()) != null) {
+                output.add(inLine);
             }
 
             process.waitFor();

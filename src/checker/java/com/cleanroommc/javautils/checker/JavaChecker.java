@@ -1,4 +1,4 @@
-package com.cleanroommc.javautils;
+package com.cleanroommc.javautils.checker;
 
 public class JavaChecker {
 
