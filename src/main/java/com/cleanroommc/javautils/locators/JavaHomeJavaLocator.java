@@ -3,6 +3,7 @@ package com.cleanroommc.javautils.locators;
 import com.cleanroommc.javautils.JavaUtils;
 import com.cleanroommc.javautils.api.JavaInstall;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -16,10 +17,18 @@ public class JavaHomeJavaLocator extends AbstractJavaLocator {
             javaHomeEnv = env("JAVA_HOME");
         } catch (SecurityException ignore) { }
         if (javaHomeEnv != null) {
-            javaInstalls.add(JavaUtils.parseInstall(javaHomeEnv));
+            try {
+                javaInstalls.add(JavaUtils.parseInstall(javaHomeEnv));
+            } catch (IOException e) {
+                logParseError(javaHomeEnv, e);
+            }
         }
         String current = property("java.home");
-        javaInstalls.add(JavaUtils.parseInstall(current));
+        try {
+            javaInstalls.add(JavaUtils.parseInstall(current));
+        } catch (IOException e) {
+            logParseError(current, e);
+        }
         return javaInstalls;
     }
 

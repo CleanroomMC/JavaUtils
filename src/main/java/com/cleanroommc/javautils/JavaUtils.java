@@ -56,16 +56,14 @@ public final class JavaUtils {
         }
     }
 
-    public static JavaInstall parseInstall(File location) {
+    public static JavaInstall parseInstall(File location) throws IOException {
         return parseInstall(location.getAbsolutePath());
     }
 
-    public static JavaInstall parseInstall(String location) {
+    public static JavaInstall parseInstall(String location) throws IOException {
         List<String> arguments = new ArrayList<>();
         ProcessBuilder processBuilder = new ProcessBuilder(arguments); // ProcessBuilder doesn't copy
 
-        // File workingJar = currentJarLocation();
-        // File workingDir = workingJar.getParentFile();
         File workingJar = jarLocationOf(JavaChecker.class);
         File workingDir = workingJar.getParentFile();
         processBuilder.directory(workingDir);
@@ -87,7 +85,7 @@ public final class JavaUtils {
 
         File root = new File(rootLocation);
         if (!new File(executableLocation).exists()) {
-            throw new IllegalArgumentException("Invalid location for a java install: " + location);
+            throw new IOException("Invalid location for a java install: " + location);
         }
 
         arguments.add(executableLocation);
@@ -108,7 +106,7 @@ public final class JavaUtils {
 
             process.waitFor();
         } catch (IOException | InterruptedException e) {
-            throw new RuntimeException("Unable to parse install.", e);
+            throw new IOException("Unable to parse install", e);
         }
 
         return JavaInstallImpl.of(root, output.get(0), output.get(1));

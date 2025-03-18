@@ -4,6 +4,7 @@ import com.cleanroommc.javautils.JavaUtils;
 import com.cleanroommc.javautils.api.JavaInstall;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -27,9 +28,10 @@ public class GradleProvisionedJavaLocator extends AbstractJavaLocator {
         List<JavaInstall> installs = new ArrayList<>();
         for (File jdkDir : jdksDir.listFiles()) {
             try {
-                installs.add(JavaUtils.parseInstall(jdksDir));
-            } catch (IllegalArgumentException e) {
+                installs.add(JavaUtils.parseInstall(jdkDir));
+            } catch (IOException e1) {
                 // Older methods of provisioning may contain a nested directory first
+                LOGGER.warn("Could not parse {} as a JavaInstall, trying a fallback method...", jdkDir.getAbsolutePath(), e1);
                 File[] nestedJdkDirs = jdkDir.listFiles();
                 if (nestedJdkDirs == null) {
                     continue;
@@ -37,7 +39,9 @@ public class GradleProvisionedJavaLocator extends AbstractJavaLocator {
                 for (File nestedJdkDir : nestedJdkDirs) {
                     try {
                         installs.add(JavaUtils.parseInstall(nestedJdkDir));
-                    } catch (IllegalArgumentException ignore) { }
+                    } catch (IOException e2) {
+                        logParseError(nestedJdkDir, e2);
+                    }
                 }
             }
         }

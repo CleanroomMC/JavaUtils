@@ -4,6 +4,7 @@ import com.cleanroommc.javautils.JavaUtils;
 import com.cleanroommc.javautils.api.JavaInstall;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -29,7 +30,14 @@ public class JabbaJavaLocator extends AbstractJavaLocator {
         if (jdkDirs == null) {
             return Collections.emptyList();
         }
-        return Arrays.stream(jdkDirs).map(JavaUtils::parseInstall).collect(Collectors.toList());
+        return Arrays.stream(jdkDirs).map(path -> {
+            try {
+                return JavaUtils.parseInstall(path);
+            } catch (IOException e) {
+                logParseError(path, e);
+            }
+            return null;
+        }).collect(Collectors.toList());
     }
 
 }

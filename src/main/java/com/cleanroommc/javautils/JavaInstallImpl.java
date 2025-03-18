@@ -5,10 +5,11 @@ import com.cleanroommc.javautils.api.JavaVersion;
 import com.cleanroommc.platformutils.Platform;
 
 import java.io.File;
+import java.io.IOException;
 
 class JavaInstallImpl implements JavaInstall {
 
-    static JavaInstall of(File executable, String version, String vendor) {
+    static JavaInstall of(File executable, String version, String vendor) throws IOException {
         return new JavaInstallImpl(executable, version, vendor);
     }
 
@@ -16,7 +17,7 @@ class JavaInstallImpl implements JavaInstall {
     private final String vendor;
     private final JavaVersion version;
 
-    private JavaInstallImpl(File home, String version, String vendor) {
+    private JavaInstallImpl(File home, String version, String vendor) throws IOException {
         this.home = home;
         String executableExtension = Platform.current().isWindows() ? ".exe" : "";
         this.java = new File(this.home, "bin/java" + executableExtension);
@@ -25,7 +26,7 @@ class JavaInstallImpl implements JavaInstall {
         this.version = JavaVersion.parse(version);
 
         if (!this.java.exists()) {
-            throw new IllegalStateException("JavaInstall is missing Java Executable!");
+            throw new IOException("JavaInstall is missing Java Executable!");
         }
     }
 
