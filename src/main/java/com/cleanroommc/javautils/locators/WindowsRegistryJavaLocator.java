@@ -32,7 +32,6 @@ public class WindowsRegistryJavaLocator extends AbstractJavaLocator {
                     }
                     return null;
                 })
-                .filter(Objects::nonNull)
                 .collect(Collectors.toList());
     }
 

@@ -7,10 +7,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
@@ -64,7 +61,7 @@ public abstract class AbstractJavaLocator implements JavaLocator {
             this.initialized = true;
             List<JavaInstall> resolvedJavaInstalls = this.initialize();
 
-            this.javaInstalls = new HashSet<>(resolvedJavaInstalls);
+            this.javaInstalls = resolvedJavaInstalls.stream().filter(Objects::nonNull).collect(Collectors.toSet());
         }
     }
 
