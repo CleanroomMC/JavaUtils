@@ -1,6 +1,7 @@
 package com.cleanroommc.javautils;
 
 import com.cleanroommc.javautils.api.JavaInstall;
+import com.cleanroommc.javautils.api.JavaVendor;
 import com.cleanroommc.javautils.api.JavaVersion;
 import com.cleanroommc.platformutils.Platform;
 
@@ -14,7 +15,7 @@ class JavaInstallImpl implements JavaInstall {
     }
 
     private final File home, java, javac;
-    private final String vendor;
+    private final JavaVendor vendor;
     private final JavaVersion version;
 
     private JavaInstallImpl(File home, String version, String vendor) throws IOException {
@@ -22,7 +23,7 @@ class JavaInstallImpl implements JavaInstall {
         String executableExtension = Platform.current().isWindows() ? ".exe" : "";
         this.java = new File(this.home, "bin/java" + executableExtension);
         this.javac = new File(this.home, "bin/javac" + executableExtension);
-        this.vendor = vendor;
+        this.vendor = JavaVendor.find(vendor);
         this.version = JavaVersion.parse(version);
 
         if (!this.java.exists()) {
@@ -46,7 +47,7 @@ class JavaInstallImpl implements JavaInstall {
     }
 
     @Override
-    public String vendor() {
+    public JavaVendor vendor() {
         return vendor;
     }
 

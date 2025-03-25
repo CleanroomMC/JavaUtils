@@ -10,7 +10,7 @@ public interface JavaInstall {
 
     JavaVersion version();
 
-    String vendor();
+    JavaVendor vendor();
 
     boolean jdk();
 
