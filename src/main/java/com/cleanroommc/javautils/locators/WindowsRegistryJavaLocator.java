@@ -17,7 +17,13 @@ public class WindowsRegistryJavaLocator extends AbstractJavaLocator {
             return Collections.emptyList();
         }
 
-        List<QueryResult> results = this.query("JavaSoft", "Wow6432Node/JavaSoft");
+        List<QueryResult> results = new ArrayList<>();
+        results.add(WindowsRegistry.query(HKey.HKEY_LOCAL_MACHINE, "Software/JavaSoft", this.parameters("JavaHome")));
+        results.add(WindowsRegistry.query(HKey.HKEY_LOCAL_MACHINE, "Software/Wow6432Node/JavaSoft", this.parameters("JavaHome")));
+
+        results.add(WindowsRegistry.query(HKey.HKEY_LOCAL_MACHINE, "Software/AdoptOpenJDK/JDK/", this.parameters("Path")));
+        results.add(WindowsRegistry.query(HKey.HKEY_LOCAL_MACHINE, "Software/Eclipse Adoptium/JDK/", this.parameters("Path")));
+        results.add(WindowsRegistry.query(HKey.HKEY_LOCAL_MACHINE, "Software/Eclipse Foundation/JDK/", this.parameters("Path")));
 
         return results.stream()
                 .filter(QueryResult::successful)
@@ -35,16 +41,8 @@ public class WindowsRegistryJavaLocator extends AbstractJavaLocator {
                 .collect(Collectors.toList());
     }
 
-    private List<QueryResult> query(String... keys) {
-        List<QueryResult> result = new ArrayList<>();
-        for (String key : keys) {
-            result.add(WindowsRegistry.query(HKey.HKEY_LOCAL_MACHINE, "Software/" + key, this.parameters()));
-        }
-        return result;
-    }
-
-    private QueryParameter[] parameters() {
-        return new QueryParameter[]{ QueryParameter.recursive(), QueryParameter.valueName("JavaHome"), QueryParameter.valueFilter(HRegistryValueType.REG_SZ) };
+    private QueryParameter[] parameters(String valueName) {
+        return new QueryParameter[]{ QueryParameter.recursive(), QueryParameter.valueName(valueName), QueryParameter.valueFilter(HRegistryValueType.REG_SZ) };
     }
 
 }
