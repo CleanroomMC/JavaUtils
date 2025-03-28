@@ -25,11 +25,7 @@ public class HomebrewJavaLocator extends AbstractJavaLocator {
 
         File homebrewMain = new File("/opt/homebrew/opt/java/bin/java");
         if (homebrewMain.exists()) {
-            try {
-                javaInstalls.add(JavaUtils.parseInstall(homebrewMain));
-            } catch (IOException e) {
-                logParseError(homebrewMain, e);
-            }
+            parseOrLog(javaInstalls, homebrewMain);
         }
 
         File cellar = new File("/opt/homebrew/Cellar/openjdk");
@@ -37,11 +33,7 @@ public class HomebrewJavaLocator extends AbstractJavaLocator {
             File[] directories = cellar.listFiles();
             if (directories != null) {
                 for (File directory : directories) {
-                    try {
-                        javaInstalls.add(JavaUtils.parseInstall(directory));
-                    } catch (IOException e) {
-                        logParseError(directory, e);
-                    }
+                    parseOrLog(javaInstalls, directory);
                 }
             }
         }
@@ -49,11 +41,7 @@ public class HomebrewJavaLocator extends AbstractJavaLocator {
         try (DirectoryStream<Path> stream = Files.newDirectoryStream(Paths.get("/opt/homebrew/Cellar"), "openjdk@*")) {
             for (Path path : stream) {
                 File directory = path.toFile();
-                try {
-                    javaInstalls.add(JavaUtils.parseInstall(directory));
-                } catch (IOException e) {
-                    logParseError(directory, e);
-                }
+                parseOrLog(javaInstalls, directory);
             }
         } catch (IOException e) {
             LOGGER.warn("Error encountered while searching for Java installs.", e);

@@ -1,5 +1,6 @@
 package com.cleanroommc.javautils.locators;
 
+import com.cleanroommc.javautils.JavaUtils;
 import com.cleanroommc.javautils.api.JavaInstall;
 import com.cleanroommc.javautils.spi.JavaLocator;
 import org.slf4j.Logger;
@@ -37,6 +38,40 @@ public abstract class AbstractJavaLocator implements JavaLocator {
 
     protected static void logParseError(String path, IOException e) {
         LOGGER.error("Unable to parse {} as a JavaInstall", path, e);
+    }
+
+    protected static void parseOrLog(List<JavaInstall> installs, File file) {
+        try {
+            installs.add(JavaUtils.parseInstall(file));
+        } catch (IOException e) {
+            logParseError(file, e);
+        }
+    }
+
+    protected static void parseOrLog(List<JavaInstall> installs, String file) {
+        try {
+            installs.add(JavaUtils.parseInstall(file));
+        } catch (IOException e) {
+            logParseError(file, e);
+        }
+    }
+
+    protected static JavaInstall parseOrLog(File file) {
+        try {
+            return JavaUtils.parseInstall(file);
+        } catch (IOException e) {
+            logParseError(file, e);
+        }
+        return null;
+    }
+
+    protected static JavaInstall parseOrLog(String file) {
+        try {
+            return JavaUtils.parseInstall(file);
+        } catch (IOException e) {
+            logParseError(file, e);
+        }
+        return null;
     }
 
     private boolean initialized;

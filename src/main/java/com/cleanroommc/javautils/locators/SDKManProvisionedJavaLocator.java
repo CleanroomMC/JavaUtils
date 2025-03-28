@@ -18,11 +18,7 @@ public class SDKManProvisionedJavaLocator extends AbstractJavaLocator {
             File[] directories = sdkManDir.listFiles();
             if (directories != null) {
                 for (File directory : directories) {
-                    try {
-                        javaInstalls.add(JavaUtils.parseInstall(directory));
-                    } catch (IOException e) {
-                        logParseError(directory, e);
-                    }
+                    parseOrLog(javaInstalls, directory);
                 }
             }
         }

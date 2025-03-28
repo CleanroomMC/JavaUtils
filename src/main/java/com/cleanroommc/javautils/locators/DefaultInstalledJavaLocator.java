@@ -1,6 +1,5 @@
 package com.cleanroommc.javautils.locators;
 
-import com.cleanroommc.javautils.JavaUtils;
 import com.cleanroommc.javautils.api.JavaInstall;
 import com.cleanroommc.javautils.api.JavaVendor;
 import com.cleanroommc.platformutils.Platform;
@@ -51,11 +50,7 @@ public class DefaultInstalledJavaLocator extends AbstractJavaLocator {
                                 .map(path -> path.resolve("bin/javaw.exe"))
                                 .filter(Files::exists)) {
                             stream.map(Path::getParent).map(Path::toFile).forEach(f -> {
-                                try {
-                                    installs.add(JavaUtils.parseInstall(f));
-                                } catch (IOException e) {
-                                    logParseError(f, e);
-                                }
+                                parseOrLog(installs, f);
                             });
                         } catch (IOException e) {
                             LOGGER.warn("Error encountered while searching for Java installs.", e);
@@ -76,29 +71,17 @@ public class DefaultInstalledJavaLocator extends AbstractJavaLocator {
             }
             File home = new File(directory, "Contents/Home/bin/java");
             if (home.exists()) {
-                try {
-                    installs.add(JavaUtils.parseInstall(home));
-                } catch (IOException e) {
-                    logParseError(home, e);
-                }
+                parseOrLog(installs, home);
             }
         }
 
         File javaApplet = new File("/Library/Internet Plug-Ins/JavaAppletPlugin.plugin/Contents/Home/bin/java");
         if (javaApplet.exists()) {
-            try {
-                installs.add(JavaUtils.parseInstall(javaApplet));
-            } catch (IOException e) {
-                logParseError(javaApplet, e);
-            }
+            parseOrLog(installs, javaApplet);
         }
         File xCode = new File("/Applications/Xcode.app/Contents/Applications/Application Loader.app/Contents/MacOS/itms/java/bin/java");
         if (xCode.exists()) {
-            try {
-                installs.add(JavaUtils.parseInstall(xCode));
-            } catch (IOException e) {
-                logParseError(xCode, e);
-            }
+            parseOrLog(installs, xCode);
         }
     }
 
@@ -109,11 +92,7 @@ public class DefaultInstalledJavaLocator extends AbstractJavaLocator {
                 File[] subDirectories = directory.listFiles();
                 if (subDirectories != null) {
                     for (File jvmDirectory : subDirectories) {
-                        try {
-                            installs.add(JavaUtils.parseInstall(jvmDirectory));
-                        } catch (IOException e) {
-                            logParseError(jvmDirectory, e);
-                        }
+                        parseOrLog(installs, jvmDirectory);
                     }
                 }
             }

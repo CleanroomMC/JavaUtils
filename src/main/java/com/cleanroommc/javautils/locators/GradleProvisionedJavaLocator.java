@@ -37,11 +37,7 @@ public class GradleProvisionedJavaLocator extends AbstractJavaLocator {
                     continue;
                 }
                 for (File nestedJdkDir : nestedJdkDirs) {
-                    try {
-                        installs.add(JavaUtils.parseInstall(nestedJdkDir));
-                    } catch (IOException e2) {
-                        logParseError(nestedJdkDir, e2);
-                    }
+                    parseOrLog(installs, nestedJdkDir);
                 }
             }
         }

@@ -1,11 +1,9 @@
 package com.cleanroommc.javautils.locators;
 
-import com.cleanroommc.javautils.JavaUtils;
 import com.cleanroommc.javautils.api.JavaInstall;
 import com.cleanroommc.platformutils.Platform;
 import com.cleanroommc.platformutils.windows.*;
 
-import java.io.IOException;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -30,14 +28,7 @@ public class WindowsRegistryJavaLocator extends AbstractJavaLocator {
                 .map(QueryResult::entries)
                 .flatMap(Collection::stream)
                 .map(QueryResult.Entry::value)
-                .map(path -> {
-                    try {
-                        return JavaUtils.parseInstall(path);
-                    } catch (IOException e) {
-                        logParseError(path, e);
-                    }
-                    return null;
-                })
+                .map(AbstractJavaLocator::parseOrLog)
                 .collect(Collectors.toList());
     }
 
