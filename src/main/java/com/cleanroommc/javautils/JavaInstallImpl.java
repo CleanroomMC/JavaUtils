@@ -24,7 +24,7 @@ class JavaInstallImpl implements JavaInstall {
         this.java = new File(this.home, "bin/java" + executableExtension);
         this.javac = new File(this.home, "bin/javac" + executableExtension);
         this.vendor = JavaVendor.find(vendor);
-        this.version = JavaVersion.parse(version);
+        this.version = JavaVersion.parseOrThrow(version);
 
         if (!this.java.exists()) {
             throw new IOException("JavaInstall is missing Java Executable!");

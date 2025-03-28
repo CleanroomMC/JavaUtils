@@ -22,7 +22,7 @@ public interface JavaLocator {
     Set<JavaInstall> all();
 
     default Set<JavaInstall> get(int featureVersion) {
-        return this.get(javaInstall -> javaInstall.version().feature() == featureVersion);
+        return this.get(javaInstall -> javaInstall.version().major() == featureVersion);
     }
 
     default boolean has(int featureVersion) {
