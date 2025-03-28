@@ -1,4 +1,5 @@
 com.cleanroommc.javautils.locators.ASDFProvisionedJavaLocator
+com.cleanroommc.javautils.locators.DefaultInstalledJavaLocator
 com.cleanroommc.javautils.locators.GradleProvisionedJavaLocator
 com.cleanroommc.javautils.locators.IntelliJProvisionedJavaLocator
 com.cleanroommc.javautils.locators.JabbaJavaLocator

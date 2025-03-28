@@ -34,7 +34,7 @@ public final class JavaVendor {
     }
 
     public static JavaVendor find(String rawVendor) {
-        if (rawVendor == null) {
+        if (rawVendor == null || rawVendor.isEmpty()) {
             return UNKNOWN;
         }
         for (JavaVendor vendor : VENDORS) {

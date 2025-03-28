@@ -15,6 +15,7 @@ public class IntelliJProvisionedJavaLocator extends AbstractJavaLocator {
 
     @Override
     protected List<JavaInstall> initialize() {
+        // IntelliJ uses with default install location for its provisioned JDKs only on macOS
         File jdksDir = new File(userHome(Platform.current().isMacOS() ? "Library/Java/JavaVirtualMachines" : ".jdks"));
         if (!jdksDir.exists() || jdksDir.isFile()) {
             return Collections.emptyList();
