@@ -1,6 +1,5 @@
 package com.cleanroommc.javautils.locators;
 
-import com.cleanroommc.javautils.JavaUtils;
 import com.cleanroommc.javautils.api.JavaInstall;
 import com.cleanroommc.platformutils.Platform;
 
@@ -14,7 +13,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-public class HomebrewJavaLocator extends AbstractJavaLocator {
+public class HomebrewProvisionedJavaLocator extends AbstractJavaLocator {
 
     @Override
     protected List<JavaInstall> initialize() {

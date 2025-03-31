@@ -8,7 +8,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
-public class JabbaJavaLocator extends AbstractJavaLocator {
+public class JabbaProvisionedJavaLocator extends AbstractJavaLocator {
 
     @Override
     protected List<JavaInstall> initialize() {
