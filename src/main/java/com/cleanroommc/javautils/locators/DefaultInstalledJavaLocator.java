@@ -44,17 +44,7 @@ public class DefaultInstalledJavaLocator extends AbstractJavaLocator {
             if (subDirectories != null) {
                 for (String dirName : subDirectories) {
                     if (JavaVendor.find(dirName) != JavaVendor.UNKNOWN) {
-                        Path vendorPath = new File(directory, dirName).toPath();
-                        try (Stream<Path> stream = Files.walk(vendorPath)
-                                .filter(Files::isDirectory)
-                                .map(path -> path.resolve("bin/javaw.exe"))
-                                .filter(Files::exists)) {
-                            stream.map(Path::getParent).map(Path::toFile).forEach(f -> {
-                                parseOrLog(installs, f);
-                            });
-                        } catch (IOException e) {
-                            LOGGER.warn("Error encountered while searching for Java installs.", e);
-                        }
+                        deepScanForInstalls(new File(directory, dirName), installs);
                     }
                 }
             }
@@ -86,16 +76,8 @@ public class DefaultInstalledJavaLocator extends AbstractJavaLocator {
     }
 
     private void linux(List<JavaInstall> installs) {
-        for (String directoryName : new String[] { "/usr/java", "/usr/lib/jvm", "/usr/lib32/jvm", "/usr/lib64/jvm" }) {
-            File directory = new File(directoryName);
-            if (directory.exists()) {
-                File[] subDirectories = directory.listFiles();
-                if (subDirectories != null) {
-                    for (File jvmDirectory : subDirectories) {
-                        parseOrLog(installs, jvmDirectory);
-                    }
-                }
-            }
+        for (String directoryName : new String[] { "/usr/java", "/usr/lib/jvm", "/usr/lib32/jvm", "/usr/lib64/jvm", "/usr/local", "/opt", "/app/jdk", "/opt/jdk", "/opt/jdks" }) {
+            deepScanForInstalls(new File(directoryName), installs);
         }
     }
 

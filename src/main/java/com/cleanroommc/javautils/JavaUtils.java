@@ -74,7 +74,7 @@ public final class JavaUtils {
         if (location.endsWith("bin")) {
             rootLocation = location.substring(0, location.length() - "/bin".length());
             executableLocation = location + (isWindows ? "\\javaw.exe" : "/javaw");
-        } else if (!location.endsWith("javaw") || !location.endsWith("javaw.exe")) {
+        } else if (!location.endsWith(isWindows ? "javaw.exe" : "javaw")) {
             rootLocation = location;
             executableLocation = location + (isWindows ? "\\bin\\javaw.exe" : "/bin/javaw");
         } else {
