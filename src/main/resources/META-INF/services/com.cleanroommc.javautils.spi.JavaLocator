@@ -5,5 +5,6 @@ com.cleanroommc.javautils.locators.HomebrewProvisionedJavaLocator
 com.cleanroommc.javautils.locators.IntelliJProvisionedJavaLocator
 com.cleanroommc.javautils.locators.JabbaProvisionedJavaLocator
 com.cleanroommc.javautils.locators.JavaHomeJavaLocator
+com.cleanroommc.javautils.locators.MinecraftJavaLocator
 com.cleanroommc.javautils.locators.SDKManProvisionedJavaLocator
 com.cleanroommc.javautils.locators.WindowsRegistryJavaLocator
