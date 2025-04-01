@@ -5,12 +5,8 @@ import com.cleanroommc.javautils.api.JavaVendor;
 import com.cleanroommc.platformutils.Platform;
 
 import java.io.File;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Stream;
 
 public class DefaultInstalledJavaLocator extends AbstractJavaLocator {
 
@@ -31,12 +27,21 @@ public class DefaultInstalledJavaLocator extends AbstractJavaLocator {
     }
 
     private void windows(List<JavaInstall> installs) {
-        File programFiles = new File(env("ProgramFiles"));
-        File programFilesX86 = new File(env("ProgramFiles(X86)"));
-        File programFilesArm = new File(env("ProgramFiles(Arm)"));
-        File appData = new File(env("LOCALAPPDATA") + "/Programs/");
-
-        for (File directory : new File[] { programFiles, programFilesX86, programFilesArm, appData }) {
+        List<File> locations = new ArrayList<>();
+        String programFiles = env("ProgramFiles");
+        if (programFiles != null) {
+            locations.add(new File(programFiles));
+        }
+        programFiles = env("ProgramFiles(x86)");
+        if (programFiles != null) {
+            locations.add(new File(programFiles));
+        }
+        programFiles = env("ProgramFiles(Arm)");
+        if (programFiles != null) {
+            locations.add(new File(programFiles));
+        }
+        locations.add(new File(env("LOCALAPPDATA") + "/Programs/"));
+        for (File directory : locations) {
             if (!directory.exists()) {
                 continue;
             }

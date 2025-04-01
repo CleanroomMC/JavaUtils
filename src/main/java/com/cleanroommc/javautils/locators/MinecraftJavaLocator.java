@@ -16,11 +16,20 @@ public class MinecraftJavaLocator extends AbstractJavaLocator {
         Platform current = Platform.current();
         switch (current.operatingSystem()) {
             case WINDOWS:
-                File programFiles = new File(env("ProgramFiles"));
-                File programFilesX86 = new File(env("ProgramFiles(x86)"));
-                File programFilesArm = new File(env("ProgramFiles(Arm)"));
-
-                for (File directory : new File[] { programFiles, programFilesX86, programFilesArm }) {
+                List<File> programFilesLocations = new ArrayList<>();
+                String programFiles = env("ProgramFiles");
+                if (programFiles != null) {
+                    programFilesLocations.add(new File(programFiles));
+                }
+                programFiles = env("ProgramFiles(x86)");
+                if (programFiles != null) {
+                    programFilesLocations.add(new File(programFiles));
+                }
+                programFiles = env("ProgramFiles(Arm)");
+                if (programFiles != null) {
+                    programFilesLocations.add(new File(programFiles));
+                }
+                for (File directory : programFilesLocations) {
                     if (directory.exists()) {
                         deepScanForInstalls(new File(directory, "Minecraft Launcher/runtime"), installs);
                     }
