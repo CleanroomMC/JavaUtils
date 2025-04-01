@@ -1,5 +1,5 @@
 plugins {
-    id 'java'
+    id 'java-library'
     id 'maven-publish'
 }
 
@@ -41,9 +41,10 @@ repositories {
 }
 
 dependencies {
-    implementation 'org.slf4j:slf4j-api:2.0.17'
+    api 'org.slf4j:slf4j-api:2.0.17'
+    api 'com.cleanroommc:platform-utils:2.0.0'
+
     implementation 'org.slf4j:slf4j-simple:2.0.17'
-    implementation 'com.cleanroommc:platform-utils:2.0.0'
 
     testImplementation platform('org.junit:junit-bom:5.10.0')
     testImplementation 'org.junit.jupiter:junit-jupiter'
