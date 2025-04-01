@@ -59,6 +59,28 @@ tasks.named('compileCheckerJava', JavaCompile).configure {
     options.compilerArgs << '-Xlint:-options'
 }
 
+jar {
+    from sourceSets.api.output.classesDirs
+    from sourceSets.checker.output.classesDirs
+}
+
+tasks.register('apiJar', Jar).configure {
+    group 'build'
+    archiveClassifier = 'api'
+    from sourceSets.api.output.classesDirs
+}
+
+tasks.register('checkerJar', Jar).configure {
+    group 'build'
+    archiveClassifier = 'checker'
+    from sourceSets.checker.output.classesDirs
+    from sourceSets.checker.output.resourcesDir
+
+    manifest {
+        attributes('Main-Class': 'com.cleanroommc.javautils.checker.JavaChecker')
+    }
+}
+
 publishing {
     repositories {
         maven {
@@ -71,6 +93,8 @@ publishing {
         mavenJava(MavenPublication) {
             artifactId 'java-utils'
             from components.java
+            artifact tasks.apiJar
+            artifact tasks.checkerJar
         }
     }
 }
