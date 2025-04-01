@@ -64,7 +64,7 @@ class JavaInstallImpl implements JavaInstall {
 
     @Override
     public int hashCode() {
-        return this.home.hashCode();
+        return this.home.getAbsolutePath().hashCode();
     }
 
     @Override
