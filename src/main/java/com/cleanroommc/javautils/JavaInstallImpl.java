@@ -14,7 +14,7 @@ class JavaInstallImpl implements JavaInstall {
         return new JavaInstallImpl(executable, version, vendor);
     }
 
-    private final File home, java, javac;
+    private final File home, java, javaw, javac;
     private final JavaVendor vendor;
     private final JavaVersion version;
 
@@ -22,6 +22,7 @@ class JavaInstallImpl implements JavaInstall {
         this.home = home;
         String executableExtension = Platform.current().isWindows() ? ".exe" : "";
         this.java = new File(this.home, "bin/java" + executableExtension);
+        this.javaw = new File(this.home, "bin/javaw" + executableExtension);
         this.javac = new File(this.home, "bin/javac" + executableExtension);
         this.vendor = JavaVendor.find(vendor);
         this.version = JavaVersion.parseOrThrow(version);
@@ -37,8 +38,8 @@ class JavaInstallImpl implements JavaInstall {
     }
 
     @Override
-    public File executable() {
-        return java;
+    public File executable(boolean wrapper) {
+        return wrapper ? javaw : java;
     }
 
     @Override

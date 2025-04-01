@@ -6,7 +6,7 @@ public interface JavaInstall {
 
     File home();
 
-    File executable();
+    File executable(boolean wrapper);
 
     JavaVersion version();
 
