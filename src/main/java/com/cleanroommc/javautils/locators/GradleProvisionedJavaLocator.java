@@ -26,7 +26,7 @@ public class GradleProvisionedJavaLocator extends AbstractJavaLocator {
             return Collections.emptyList();
         }
         List<JavaInstall> installs = new ArrayList<>();
-        for (File jdkDir : jdksDir.listFiles(f -> f.isDirectory())) {
+        for (File jdkDir : jdksDir.listFiles(File::isDirectory)) {
             try {
                 installs.add(JavaUtils.parseInstall(jdkDir));
             } catch (IOException e1) {

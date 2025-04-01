@@ -9,12 +9,10 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.*;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 public abstract class AbstractJavaLocator implements JavaLocator {
 
@@ -83,13 +81,24 @@ public abstract class AbstractJavaLocator implements JavaLocator {
             return;
         }
         String javaWPath = Platform.current().isWindows() ? "bin/javaw.exe" : "bin/javaw";
-        try (Stream<Path> stream = Files.walk(directory.toPath())
-                .filter(Files::isDirectory)
-                .map(path -> path.resolve(javaWPath))
-                .filter(Files::exists)) {
-            stream.map(Path::getParent).map(Path::toFile).forEach(f -> parseOrLog(installs, f));
-        } catch (IOException e) {
-            LOGGER.warn("Error encountered while searching for Java installs.", e);
+        walk(directory, file -> {
+            File location = new File(file, javaWPath);
+            if (location.exists()) {
+                parseOrLog(installs, location);
+                return true;
+            }
+            return false;
+        });
+    }
+
+    private static void walk(File directory, Function<File, Boolean> run) {
+        File[] subDirectories = directory.listFiles(File::isDirectory);
+        if (subDirectories != null) {
+            for (File subDirectory : subDirectories) {
+                if (!run.apply(subDirectory)) {
+                    walk(subDirectory, run);
+                }
+            }
         }
     }
 
