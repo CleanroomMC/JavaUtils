@@ -38,7 +38,7 @@ public final class JavaVendor {
             return UNKNOWN;
         }
         for (JavaVendor vendor : VENDORS) {
-            if (vendor.name.equals(rawVendor)) {
+            if (vendor.name.equalsIgnoreCase(rawVendor)) {
                 return vendor;
             }
             if (vendor.pattern.matcher(rawVendor).find()) {
@@ -61,5 +61,10 @@ public final class JavaVendor {
     public String name() {
         return name;
     }
-    
+
+    @Override
+    public String toString() {
+        return name;
+    }
+
 }
