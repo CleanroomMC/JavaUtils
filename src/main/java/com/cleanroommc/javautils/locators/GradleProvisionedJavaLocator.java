@@ -26,12 +26,12 @@ public class GradleProvisionedJavaLocator extends AbstractJavaLocator {
             return Collections.emptyList();
         }
         List<JavaInstall> installs = new ArrayList<>();
-        for (File jdkDir : jdksDir.listFiles()) {
+        for (File jdkDir : jdksDir.listFiles(f -> f.isDirectory())) {
             try {
                 installs.add(JavaUtils.parseInstall(jdkDir));
             } catch (IOException e1) {
                 // Older methods of provisioning may contain a nested directory first
-                LOGGER.warn("Could not parse {} as a JavaInstall, trying a fallback method...", jdkDir.getAbsolutePath(), e1);
+                LOGGER.warn("Could not parse {} as a JavaInstall, checking nested directory to see if it is an older gradle provisioned install...", jdkDir.getAbsolutePath());
                 File[] nestedJdkDirs = jdkDir.listFiles();
                 if (nestedJdkDirs == null) {
                     continue;
