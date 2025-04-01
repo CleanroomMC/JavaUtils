@@ -5,7 +5,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.regex.Pattern;
 
-public final class JavaVendor {
+public final class JavaVendor implements Comparable<JavaVendor> {
     
     private static final List<JavaVendor> VENDORS = new ArrayList<>();
 
@@ -65,6 +65,11 @@ public final class JavaVendor {
     @Override
     public String toString() {
         return name;
+    }
+
+    @Override
+    public int compareTo(JavaVendor javaVendor) {
+        return this.name.compareTo(javaVendor.name);
     }
 
 }

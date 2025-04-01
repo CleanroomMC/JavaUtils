@@ -2,7 +2,7 @@ package com.cleanroommc.javautils.api;
 
 import java.io.File;
 
-public interface JavaInstall {
+public interface JavaInstall extends Comparable<JavaInstall> {
 
     File home();
 

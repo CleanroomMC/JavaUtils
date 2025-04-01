@@ -75,4 +75,13 @@ class JavaInstallImpl implements JavaInstall {
         return false;
     }
 
+    @Override
+    public int compareTo(JavaInstall o) {
+        int comparedVersion = this.version().compareTo(o.version());
+        if (comparedVersion != 0) {
+            return comparedVersion;
+        }
+        return this.vendor().compareTo(o.vendor());
+    }
+
 }
