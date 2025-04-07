@@ -57,7 +57,7 @@ test {
 
 tasks.named('compileCheckerJava', JavaCompile).configure {
     sourceCompatibility = JavaVersion.VERSION_1_2
-    targetCompatibility = JavaVersion.VERSION_1_2
+    targetCompatibility = JavaVersion.VERSION_1_1
     options.compilerArgs << '-Xlint:-options'
 }
 
