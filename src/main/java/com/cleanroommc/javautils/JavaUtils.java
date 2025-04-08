@@ -77,6 +77,9 @@ public final class JavaUtils {
         } else if (!location.endsWith(isWindows ? "javaw.exe" : "javaw")) {
             rootLocation = location;
             executableLocation = location + (isWindows ? "\\bin\\javaw.exe" : "/bin/javaw");
+        } else if (!location.endsWith(isWindows ? "java.exe" : "java")) {
+            rootLocation = location;
+            executableLocation = location + (isWindows ? "\\bin\\java.exe" : "/bin/java");
         } else {
             File fileLocation = new File(location);
             rootLocation = fileLocation.getParentFile().getParentFile().getAbsolutePath();
