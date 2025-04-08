@@ -68,27 +68,24 @@ public final class JavaUtils {
         File workingDir = workingJar.getParentFile();
         processBuilder.directory(workingDir);
 
-        String rootLocation;
-        String executableLocation;
+        String rootLocation = null;
+        String executableLocation = null;
         boolean isWindows = Platform.current().isWindows();
         if (location.endsWith("bin")) {
             rootLocation = location.substring(0, location.length() - "/bin".length());
             executableLocation = location + (isWindows ? "\\javaw.exe" : "/javaw");
-        } else if (!location.endsWith(isWindows ? "javaw.exe" : "javaw")) {
-            rootLocation = location;
-            executableLocation = location + (isWindows ? "\\bin\\javaw.exe" : "/bin/javaw");
-        } else if (!location.endsWith(isWindows ? "java.exe" : "java")) {
-            rootLocation = location;
-            executableLocation = location + (isWindows ? "\\bin\\java.exe" : "/bin/java");
-        } else {
+        } else if (location.endsWith(isWindows ? "java.exe" : "java") || location.endsWith(isWindows ? "javaw.exe" : "javaw")) {
             File fileLocation = new File(location);
             rootLocation = fileLocation.getParentFile().getParentFile().getAbsolutePath();
             executableLocation = location;
+        } else {
+            rootLocation = location;
+            executableLocation = location + (isWindows ? "\\bin\\javaw.exe" : "/bin/javaw");
         }
 
         File root = new File(rootLocation);
         if (!new File(executableLocation).exists()) {
-            throw new IOException("Invalid location for a java install, Root: " + rootLocation + ", Executable: " + executableLocation);
+            throw new IOException("Invalid location for a java install, Search: " + location + ", Root: " + rootLocation + ", Executable: " + executableLocation);
         }
 
         arguments.add(executableLocation);
