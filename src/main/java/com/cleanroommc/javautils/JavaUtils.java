@@ -85,7 +85,7 @@ public final class JavaUtils {
 
         File root = new File(rootLocation);
         if (!new File(executableLocation).exists()) {
-            throw new IOException("Invalid location for a java install: " + location);
+            throw new IOException("Invalid location for a java install, Root: " + rootLocation + ", Executable: " + executableLocation);
         }
 
         arguments.add(executableLocation);
