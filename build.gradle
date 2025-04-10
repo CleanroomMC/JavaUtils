@@ -4,7 +4,7 @@ plugins {
 }
 
 group = 'com.cleanroommc'
-version = '1.1.1'
+version = '1.1.2'
 base.archivesName = 'java-utils'
 
 java {
