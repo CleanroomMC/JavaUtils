@@ -13,6 +13,8 @@ import java.util.List;
 
 public final class JavaUtils {
 
+    public static final String JAVA_EXECUTABLE = Platform.current().isWindows() ? "java.exe" : "java";
+
     public static File currentJarLocation() {
         return jarLocationOf(JavaUtils.class);
     }
@@ -68,27 +70,11 @@ public final class JavaUtils {
         File workingDir = workingJar.getParentFile();
         processBuilder.directory(workingDir);
 
-        String rootLocation = null;
-        String executableLocation = null;
-        boolean isWindows = Platform.current().isWindows();
-        if (location.endsWith("bin")) {
-            rootLocation = location.substring(0, location.length() - "/bin".length());
-            executableLocation = location + (isWindows ? "\\javaw.exe" : "/javaw");
-        } else if (location.endsWith(isWindows ? "java.exe" : "java") || location.endsWith(isWindows ? "javaw.exe" : "javaw")) {
-            File fileLocation = new File(location);
-            rootLocation = fileLocation.getParentFile().getParentFile().getAbsolutePath();
-            executableLocation = location;
-        } else {
-            rootLocation = location;
-            executableLocation = location + (isWindows ? "\\bin\\javaw.exe" : "/bin/javaw");
-        }
+        File[] locations = determine(location);
+        File root = locations[0];
+        File executable = locations[1];
 
-        File root = new File(rootLocation);
-        if (!new File(executableLocation).exists()) {
-            throw new IOException("Invalid location for a java install, Search: " + location + ", Root: " + rootLocation + ", Executable: " + executableLocation);
-        }
-
-        arguments.add(executableLocation);
+        arguments.add(executable.getAbsolutePath());
         arguments.add("-cp");
         arguments.add(workingJar.getName());
         arguments.add(JavaChecker.class.getName());
@@ -109,7 +95,30 @@ public final class JavaUtils {
             throw new IOException("Unable to parse install", e);
         }
 
-        return JavaInstallImpl.of(root, output.get(0), output.get(1));
+        return JavaInstallImpl.of(root, executable, output.get(0), output.get(1));
+    }
+
+    private static File[] determine(String path) throws IOException {
+        File file = new File(path);
+        if (file.isFile()) {
+            file = file.getParentFile();
+        }
+        if (file.isDirectory()) {
+            if ("bin".equals(file.getName())) {
+                file = file.getParentFile();
+            } else {
+                File bin = new File(file, "bin");
+                if (!bin.isDirectory()) {
+                    throw new IOException("Invalid location for a Java install. Searched in: " + path);
+                }
+            }
+            File executable = new File(file, "bin/" + JAVA_EXECUTABLE);
+            if (executable.isFile()) {
+                return new File[] { file, executable };
+            }
+            throw new IOException("Invalid location for a Java install. Searched in: " + path);
+        }
+        throw new IOException("Path (" + path + ") does not exist in filesystem.");
     }
 
     private JavaUtils() { }

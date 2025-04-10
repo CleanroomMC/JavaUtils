@@ -10,26 +10,30 @@ import java.io.IOException;
 
 class JavaInstallImpl implements JavaInstall {
 
-    static JavaInstall of(File executable, String version, String vendor) throws IOException {
-        return new JavaInstallImpl(executable, version, vendor);
+    static JavaInstall of(File root, File executable, String version, String vendor) throws IOException {
+        return new JavaInstallImpl(root, executable, version, vendor);
     }
 
     private final File home, java, javaw, javac;
     private final JavaVendor vendor;
     private final JavaVersion version;
 
-    private JavaInstallImpl(File home, String version, String vendor) throws IOException {
+    private JavaInstallImpl(File home, File executable, String version, String vendor) throws IOException {
         this.home = home;
-        String executableExtension = Platform.current().isWindows() ? ".exe" : "";
-        this.java = new File(this.home, "bin/java" + executableExtension);
-        this.javaw = new File(this.home, "bin/javaw" + executableExtension);
-        this.javac = new File(this.home, "bin/javac" + executableExtension);
+        this.java = executable;
+        this.javaw = Platform.current().isWindows() ? new File(executable.getParentFile(), "javaw.exe") : executable;
+
+        if (!this.java.isFile()) {
+            throw new IOException("Java Executable not found at: " + this.java.getAbsolutePath());
+        }
+        if (!this.javaw.isFile()) {
+            throw new IOException("Javaw Executable not found at: " + this.javaw.getAbsolutePath());
+        }
+
+        this.javac = new File(executable.getParentFile(), Platform.current().isWindows() ? "javac.exe" : "javac");
+
         this.vendor = JavaVendor.find(vendor);
         this.version = JavaVersion.parseOrThrow(version);
-
-        if (!this.java.exists()) {
-            throw new IOException("JavaInstall is missing Java Executable!");
-        }
     }
 
     @Override

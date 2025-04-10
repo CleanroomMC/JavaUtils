@@ -80,10 +80,9 @@ public abstract class AbstractJavaLocator implements JavaLocator {
         if (!directory.exists()) {
             return;
         }
-        String javaWPath = Platform.current().isWindows() ? "bin/javaw.exe" : "bin/javaw";
         walk(directory, file -> {
-            File location = new File(file, javaWPath);
-            if (location.exists()) {
+            File location = new File(file, "bin/" + JavaUtils.JAVA_EXECUTABLE);
+            if (location.isFile()) {
                 parseOrLog(installs, location);
                 return true;
             }
