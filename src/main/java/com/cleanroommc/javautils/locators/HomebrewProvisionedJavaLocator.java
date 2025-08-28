@@ -37,13 +37,16 @@ public class HomebrewProvisionedJavaLocator extends AbstractJavaLocator {
             }
         }
 
-        try (DirectoryStream<Path> stream = Files.newDirectoryStream(Paths.get("/opt/homebrew/Cellar"), "openjdk@*")) {
-            for (Path path : stream) {
-                File directory = path.toFile();
-                parseOrLog(javaInstalls, directory);
+        Path homebrew = Paths.get("/opt/homebrew/Cellar");
+        if (Files.isDirectory(homebrew)) {
+            try (DirectoryStream<Path> stream = Files.newDirectoryStream(homebrew, "openjdk@*")) {
+                for (Path path : stream) {
+                    File directory = path.toFile();
+                    parseOrLog(javaInstalls, directory);
+                }
+            } catch (IOException e) {
+                LOGGER.warn("Error encountered while searching for Java installs.", e);
             }
-        } catch (IOException e) {
-            LOGGER.warn("Error encountered while searching for Java installs.", e);
         }
 
         return javaInstalls;
