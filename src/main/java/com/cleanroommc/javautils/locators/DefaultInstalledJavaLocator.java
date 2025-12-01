@@ -81,7 +81,7 @@ public class DefaultInstalledJavaLocator extends AbstractJavaLocator {
     }
 
     private void linux(List<JavaInstall> installs) {
-        for (String directoryName : new String[] { "/usr/java", "/usr/lib/jvm", "/usr/lib32/jvm", "/usr/lib64/jvm", "/usr/local", "/opt", "/app/jdk", "/opt/jdk", "/opt/jdks" }) {
+        for (String directoryName : new String[] { "/usr/java", "/usr/lib/jvm", "/usr/lib32/jvm", "/usr/lib64/jvm", "/usr/local", "/app/jdk", "/opt/jdk", "/opt/jdks" }) {
             deepScanForInstalls(new File(directoryName), installs);
         }
     }
