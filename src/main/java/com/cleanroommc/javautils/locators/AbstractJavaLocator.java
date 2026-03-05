@@ -3,16 +3,18 @@ package com.cleanroommc.javautils.locators;
 import com.cleanroommc.javautils.JavaUtils;
 import com.cleanroommc.javautils.api.JavaInstall;
 import com.cleanroommc.javautils.spi.JavaLocator;
-import com.cleanroommc.platformutils.Platform;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.*;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public abstract class AbstractJavaLocator implements JavaLocator {
 
@@ -30,23 +32,27 @@ public abstract class AbstractJavaLocator implements JavaLocator {
         return property("user.home");
     }
 
-    protected static String userHome(String directory) {
-        return userHome() + "/" + directory;
+    protected static Path userHomePath() {
+        return Paths.get(userHome());
     }
 
-    protected static void logParseError(File file, IOException e) {
-        logParseError(file.getAbsolutePath(), e);
+    protected static Path userHomePath(String directory) {
+        return userHomePath().resolve(directory);
+    }
+
+    protected static void logParseError(Path path, IOException e) {
+        logParseError(path.toAbsolutePath().toString(), e);
     }
 
     protected static void logParseError(String path, IOException e) {
         LOGGER.error("Unable to parse {} as a JavaInstall", path, e);
     }
 
-    protected static void parseOrLog(List<JavaInstall> installs, File file) {
+    protected static void parseOrLog(List<JavaInstall> installs, Path path) {
         try {
-            installs.add(JavaUtils.parseInstall(file));
+            installs.add(JavaUtils.parseInstall(path));
         } catch (IOException e) {
-            logParseError(file, e);
+            logParseError(path, e);
         }
     }
 
@@ -58,11 +64,11 @@ public abstract class AbstractJavaLocator implements JavaLocator {
         }
     }
 
-    protected static JavaInstall parseOrLog(File file) {
+    protected static JavaInstall parseOrLog(Path path) {
         try {
-            return JavaUtils.parseInstall(file);
+            return JavaUtils.parseInstall(path);
         } catch (IOException e) {
-            logParseError(file, e);
+            logParseError(path, e);
         }
         return null;
     }
@@ -76,13 +82,13 @@ public abstract class AbstractJavaLocator implements JavaLocator {
         return null;
     }
 
-    protected static void deepScanForInstalls(File directory, List<JavaInstall> installs) {
-        if (!directory.exists()) {
+    protected static void deepScanForInstalls(Path directory, List<JavaInstall> installs) {
+        if (!Files.exists(directory)) {
             return;
         }
-        walk(directory, file -> {
-            File location = new File(file, "bin/" + JavaUtils.JAVA_EXECUTABLE);
-            if (location.isFile()) {
+        walk(directory, path -> {
+            Path location = path.resolve("bin").resolve(JavaUtils.JAVA_EXECUTABLE);
+            if (Files.isRegularFile(location)) {
                 parseOrLog(installs, location);
                 return true;
             }
@@ -90,14 +96,14 @@ public abstract class AbstractJavaLocator implements JavaLocator {
         });
     }
 
-    private static void walk(File directory, Function<File, Boolean> run) {
-        File[] subDirectories = directory.listFiles(File::isDirectory);
-        if (subDirectories != null) {
-            for (File subDirectory : subDirectories) {
-                if (!run.apply(subDirectory)) {
-                    walk(subDirectory, run);
+    private static void walk(Path directory, Function<Path, Boolean> run) {
+        try (Stream<Path> stream = Files.list(directory)) {
+            stream.filter(Files::isDirectory).forEach(sub -> {
+                if (!run.apply(sub)) {
+                    walk(sub, run);
                 }
-            }
+            });
+        } catch (IOException ignored) {
         }
     }
 

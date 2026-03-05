@@ -8,6 +8,9 @@ import java.io.*;
 import java.net.MalformedURLException;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -58,11 +61,7 @@ public final class JavaUtils {
         }
     }
 
-    public static JavaInstall parseInstall(File location) throws IOException {
-        return parseInstall(location.getAbsolutePath());
-    }
-
-    public static JavaInstall parseInstall(String location) throws IOException {
+    public static JavaInstall parseInstall(Path location) throws IOException {
         List<String> arguments = new ArrayList<>();
         ProcessBuilder processBuilder = new ProcessBuilder(arguments); // ProcessBuilder doesn't copy
 
@@ -70,11 +69,11 @@ public final class JavaUtils {
         File workingDir = workingJar.getParentFile();
         processBuilder.directory(workingDir);
 
-        File[] locations = determine(location);
-        File root = locations[0];
-        File executable = locations[1];
+        Path[] locations = determine(location);
+        Path root = locations[0];
+        Path executable = locations[1];
 
-        arguments.add(executable.getAbsolutePath());
+        arguments.add(executable.toAbsolutePath().toString());
         arguments.add("-cp");
         arguments.add(workingJar.getName());
         arguments.add(JavaChecker.class.getName());
@@ -98,23 +97,30 @@ public final class JavaUtils {
         return JavaInstallImpl.of(root, executable, output.get(0), output.get(1));
     }
 
-    private static File[] determine(String path) throws IOException {
-        File file = new File(path);
-        if (file.isFile()) {
-            file = file.getParentFile();
+    public static JavaInstall parseInstall(File location) throws IOException {
+        return parseInstall(location.toPath());
+    }
+
+    public static JavaInstall parseInstall(String location) throws IOException {
+        return parseInstall(Paths.get(location));
+    }
+
+    private static Path[] determine(Path path) throws IOException {
+        if (Files.isRegularFile(path)) {
+            path = path.getParent();
         }
-        if (file.isDirectory()) {
-            if ("bin".equals(file.getName())) {
-                file = file.getParentFile();
+        if (Files.isDirectory(path)) {
+            if ("bin".equals(path.getFileName().toString())) {
+                path = path.getParent();
             } else {
-                File bin = new File(file, "bin");
-                if (!bin.isDirectory()) {
+                Path bin = path.resolve("bin");
+                if (!Files.isDirectory(bin)) {
                     throw new IOException("Invalid location for a Java install. Searched in: " + path);
                 }
             }
-            File executable = new File(file, "bin/" + JAVA_EXECUTABLE);
-            if (executable.isFile()) {
-                return new File[] { file, executable };
+            Path executable = path.resolve("bin").resolve(JAVA_EXECUTABLE);
+            if (Files.isRegularFile(executable)) {
+                return new Path[] { path, executable };
             }
             throw new IOException("Invalid location for a Java install. Searched in: " + path);
         }
