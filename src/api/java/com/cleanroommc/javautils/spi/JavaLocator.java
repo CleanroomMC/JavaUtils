@@ -14,7 +14,7 @@ public interface JavaLocator {
     }
 
     static <T extends JavaLocator> Optional<T> provider(Class<T> clazz) {
-        return (Optional<T>) locators().stream().filter(clazz::isInstance).findFirst();
+        return locators().stream().filter(clazz::isInstance).map(clazz::cast).findFirst();
     }
 
     Set<JavaInstall> get(Predicate<JavaInstall> predicate);
