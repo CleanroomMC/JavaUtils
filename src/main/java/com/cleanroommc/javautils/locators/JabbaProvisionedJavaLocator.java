@@ -2,11 +2,14 @@ package com.cleanroommc.javautils.locators;
 
 import com.cleanroommc.javautils.api.JavaInstall;
 
-import java.io.File;
-import java.util.Arrays;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public class JabbaProvisionedJavaLocator extends AbstractJavaLocator {
 
@@ -16,19 +19,19 @@ public class JabbaProvisionedJavaLocator extends AbstractJavaLocator {
         if (jabbaDirPath == null) {
             return Collections.emptyList();
         }
-        File jabbaDir = new File(jabbaDirPath);
-        if (!jabbaDir.exists() || jabbaDir.isFile()) {
+        Path jabbaDir = Paths.get(jabbaDirPath);
+        if (!Files.isDirectory(jabbaDir)) {
             return Collections.emptyList();
         }
-        File jabbaJavaInstallsDir = new File(jabbaDir, "/jdk");
-        if (!jabbaJavaInstallsDir.exists() || jabbaJavaInstallsDir.isFile()) {
+        Path jabbaJavaInstallsDir = jabbaDir.resolve("jdk");
+        if (!Files.isDirectory(jabbaJavaInstallsDir)) {
             return Collections.emptyList();
         }
-        File[] jdkDirs = jabbaJavaInstallsDir.listFiles();
-        if (jdkDirs == null) {
+        try (Stream<Path> stream = Files.list(jabbaJavaInstallsDir)) {
+            return stream.map(AbstractJavaLocator::parseOrLog).collect(Collectors.toList());
+        } catch (IOException e) {
             return Collections.emptyList();
         }
-        return Arrays.stream(jdkDirs).map(AbstractJavaLocator::parseOrLog).collect(Collectors.toList());
     }
 
 }

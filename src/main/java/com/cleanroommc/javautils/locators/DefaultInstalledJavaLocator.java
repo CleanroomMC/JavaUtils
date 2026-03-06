@@ -4,9 +4,13 @@ import com.cleanroommc.javautils.api.JavaInstall;
 import com.cleanroommc.javautils.api.JavaVendor;
 import com.cleanroommc.platformutils.Platform;
 
-import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Stream;
 
 public class DefaultInstalledJavaLocator extends AbstractJavaLocator {
 
@@ -27,62 +31,63 @@ public class DefaultInstalledJavaLocator extends AbstractJavaLocator {
     }
 
     private void windows(List<JavaInstall> installs) {
-        List<File> locations = new ArrayList<>();
+        List<Path> locations = new ArrayList<>();
         String programFiles = env("ProgramFiles");
         if (programFiles != null) {
-            locations.add(new File(programFiles));
+            locations.add(Paths.get(programFiles));
         }
         programFiles = env("ProgramFiles(x86)");
         if (programFiles != null) {
-            locations.add(new File(programFiles));
+            locations.add(Paths.get(programFiles));
         }
         programFiles = env("ProgramFiles(Arm)");
         if (programFiles != null) {
-            locations.add(new File(programFiles));
+            locations.add(Paths.get(programFiles));
         }
-        locations.add(new File(env("LOCALAPPDATA") + "/Programs/"));
-        for (File directory : locations) {
-            if (!directory.exists()) {
+        locations.add(Paths.get(env("LOCALAPPDATA"), "Programs"));
+        for (Path directory : locations) {
+            if (!Files.isDirectory(directory)) {
                 continue;
             }
-            String[] subDirectories = directory.list();
-            if (subDirectories != null) {
-                for (String dirName : subDirectories) {
-                    if (JavaVendor.find(dirName) != JavaVendor.UNKNOWN) {
-                        deepScanForInstalls(new File(directory, dirName), installs);
+            try (Stream<Path> stream = Files.list(directory)) {
+                stream.filter(Files::isDirectory).forEach(entry -> {
+                    if (JavaVendor.find(entry.getFileName().toString()) != JavaVendor.UNKNOWN) {
+                        deepScanForInstalls(entry, installs);
                     }
-                }
-            }
+                });
+            } catch (IOException ignored) { }
         }
     }
 
     private void macOs(List<JavaInstall> installs) {
-        File jvms = new File("/Library/Java/JavaVirtualMachines/");
-        File homeJvms = new File(userHome("Library/Java/JavaVirtualMachines/"));
+        Path[] jvmsDirs = {
+            Paths.get("/Library/Java/JavaVirtualMachines"),
+            userHomePath("Library/Java/JavaVirtualMachines")
+        };
 
-        for (File directory : new File[] { jvms, homeJvms }) {
-            if (!directory.exists()) {
+        for (Path directory : jvmsDirs) {
+            if (!Files.exists(directory)) {
                 continue;
             }
-            File home = new File(directory, "Contents/Home/bin/java");
-            if (home.exists()) {
+            Path home = directory.resolve("Contents/Home/bin/java");
+            if (Files.exists(home)) {
                 parseOrLog(installs, home);
             }
         }
 
-        File javaApplet = new File("/Library/Internet Plug-Ins/JavaAppletPlugin.plugin/Contents/Home/bin/java");
-        if (javaApplet.exists()) {
+        Path javaApplet = Paths.get("/Library/Internet Plug-Ins/JavaAppletPlugin.plugin/Contents/Home/bin/java");
+        if (Files.exists(javaApplet)) {
             parseOrLog(installs, javaApplet);
         }
-        File xCode = new File("/Applications/Xcode.app/Contents/Applications/Application Loader.app/Contents/MacOS/itms/java/bin/java");
-        if (xCode.exists()) {
+        Path xCode = Paths.get("/Applications/Xcode.app/Contents/Applications/Application Loader.app/Contents/MacOS/itms/java/bin/java");
+        if (Files.exists(xCode)) {
             parseOrLog(installs, xCode);
         }
     }
 
     private void linux(List<JavaInstall> installs) {
         for (String directoryName : new String[] { "/usr/java", "/usr/lib/jvm", "/usr/lib32/jvm", "/usr/lib64/jvm", "/usr/local", "/app/jdk", "/opt/jdk", "/opt/jdks" }) {
-            deepScanForInstalls(new File(directoryName), installs);
+            deepScanForInstalls(Paths.get(directoryName), installs);
         }
     }
 

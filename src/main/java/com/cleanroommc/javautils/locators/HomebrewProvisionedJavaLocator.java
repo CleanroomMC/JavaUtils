@@ -3,7 +3,6 @@ package com.cleanroommc.javautils.locators;
 import com.cleanroommc.javautils.api.JavaInstall;
 import com.cleanroommc.platformutils.Platform;
 
-import java.io.File;
 import java.io.IOException;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
@@ -12,6 +11,7 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.Stream;
 
 public class HomebrewProvisionedJavaLocator extends AbstractJavaLocator {
 
@@ -22,18 +22,17 @@ public class HomebrewProvisionedJavaLocator extends AbstractJavaLocator {
         }
         List<JavaInstall> javaInstalls = new ArrayList<>();
 
-        File homebrewMain = new File("/opt/homebrew/opt/java/bin/java");
-        if (homebrewMain.exists()) {
+        Path homebrewMain = Paths.get("/opt/homebrew/opt/java/bin/java");
+        if (Files.exists(homebrewMain)) {
             parseOrLog(javaInstalls, homebrewMain);
         }
 
-        File cellar = new File("/opt/homebrew/Cellar/openjdk");
-        if (cellar.exists()) {
-            File[] directories = cellar.listFiles();
-            if (directories != null) {
-                for (File directory : directories) {
-                    parseOrLog(javaInstalls, directory);
-                }
+        Path cellar = Paths.get("/opt/homebrew/Cellar/openjdk");
+        if (Files.exists(cellar)) {
+            try (Stream<Path> entries = Files.list(cellar)) {
+                entries.forEach(entry -> parseOrLog(javaInstalls, entry));
+            } catch (IOException e) {
+                LOGGER.warn("Error encountered while searching for Java installs.", e);
             }
         }
 
@@ -41,8 +40,7 @@ public class HomebrewProvisionedJavaLocator extends AbstractJavaLocator {
         if (Files.isDirectory(homebrew)) {
             try (DirectoryStream<Path> stream = Files.newDirectoryStream(homebrew, "openjdk@*")) {
                 for (Path path : stream) {
-                    File directory = path.toFile();
-                    parseOrLog(javaInstalls, directory);
+                    parseOrLog(javaInstalls, path);
                 }
             } catch (IOException e) {
                 LOGGER.warn("Error encountered while searching for Java installs.", e);
