@@ -55,7 +55,8 @@ public class MinecraftJavaLocator extends AbstractJavaLocator {
     private void linux(List<JavaInstall> installs) {
         deepScanForInstalls(userHomePath(".minecraft/runtime"), installs);
         deepScanForInstalls(userHomePath(".local/share/PrismLauncher/java"), installs);
-        deepScanForInstalls(userHomePath(".var/app/org.prismlauncher.PrismLauncher/data/PrismLauncher"), installs);
+        deepScanForInstalls(userHomePath(".var/app/org.prismlauncher.PrismLauncher/data/PrismLauncher/java"), installs);
+        deepScanForInstalls(Paths.get("/usr/bin/prismlauncher/java"), installs);
     }
 
 }
