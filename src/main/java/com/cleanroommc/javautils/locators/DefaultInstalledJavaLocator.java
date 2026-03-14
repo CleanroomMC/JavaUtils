@@ -1,16 +1,13 @@
 package com.cleanroommc.javautils.locators;
 
 import com.cleanroommc.javautils.api.JavaInstall;
-import com.cleanroommc.javautils.api.JavaVendor;
 import com.cleanroommc.platformutils.Platform;
 
-import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Stream;
 
 public class DefaultInstalledJavaLocator extends AbstractJavaLocator {
 
@@ -46,16 +43,7 @@ public class DefaultInstalledJavaLocator extends AbstractJavaLocator {
         }
         locations.add(Paths.get(env("LOCALAPPDATA"), "Programs"));
         for (Path directory : locations) {
-            if (!Files.isDirectory(directory)) {
-                continue;
-            }
-            try (Stream<Path> stream = Files.list(directory)) {
-                stream.filter(Files::isDirectory).forEach(entry -> {
-                    if (JavaVendor.find(entry.getFileName().toString()) != JavaVendor.UNKNOWN) {
-                        deepScanForInstalls(entry, installs);
-                    }
-                });
-            } catch (IOException ignored) { }
+            boundedScanForInstalls(directory, 2, installs);
         }
     }
 
@@ -87,7 +75,7 @@ public class DefaultInstalledJavaLocator extends AbstractJavaLocator {
 
     private void linux(List<JavaInstall> installs) {
         for (String directoryName : new String[] { "/usr/java", "/usr/lib/jvm", "/usr/lib32/jvm", "/usr/lib64/jvm", "/usr/local", "/app/jdk", "/opt/jdk", "/opt/jdks" }) {
-            deepScanForInstalls(Paths.get(directoryName), installs);
+            boundedScanForInstalls(Paths.get(directoryName), 2, installs);
         }
     }
 

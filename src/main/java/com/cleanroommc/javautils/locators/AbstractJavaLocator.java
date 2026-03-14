@@ -11,7 +11,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
-import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -86,21 +85,27 @@ public abstract class AbstractJavaLocator implements JavaLocator {
         if (!Files.exists(directory)) {
             return;
         }
-        walk(directory, path -> {
-            Path location = path.resolve("bin").resolve(JavaUtils.JAVA_EXECUTABLE);
-            if (Files.isRegularFile(location)) {
-                parseOrLog(installs, location);
-                return true;
-            }
-            return false;
-        });
+        walk(directory, Integer.MAX_VALUE, installs);
     }
 
-    private static void walk(Path directory, Function<Path, Boolean> run) {
+    protected static void boundedScanForInstalls(Path directory, int maxDepth, List<JavaInstall> installs) {
+        if (!Files.exists(directory)) {
+            return;
+        }
+        walk(directory, maxDepth, installs);
+    }
+
+    private static void walk(Path directory, int remainingDepth, List<JavaInstall> installs) {
+        if (remainingDepth <= 0) {
+            return;
+        }
         try (Stream<Path> stream = Files.list(directory)) {
             stream.filter(Files::isDirectory).forEach(sub -> {
-                if (!run.apply(sub)) {
-                    walk(sub, run);
+                Path location = sub.resolve("bin").resolve(JavaUtils.JAVA_EXECUTABLE);
+                if (Files.isRegularFile(location)) {
+                    parseOrLog(installs, location);
+                } else {
+                    walk(sub, remainingDepth - 1, installs);
                 }
             });
         } catch (IOException ignored) {
