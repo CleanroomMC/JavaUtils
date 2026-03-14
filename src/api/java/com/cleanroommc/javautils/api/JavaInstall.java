@@ -4,7 +4,7 @@ public interface JavaInstall extends JavaLocation, Comparable<JavaInstall> {
 
     JavaVersion version();
 
-    JavaVendor vendor();
+    JavaDistro distro();
 
     boolean jdk();
 

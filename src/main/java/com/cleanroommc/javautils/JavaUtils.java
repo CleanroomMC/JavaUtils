@@ -94,6 +94,7 @@ public final class JavaUtils {
             throw new IOException("Unable to parse install", e);
         }
 
+        // 0: java.version, 1: java.vendor
         return JavaInstallImpl.of(root, executable, output.get(0), output.get(1));
     }
 

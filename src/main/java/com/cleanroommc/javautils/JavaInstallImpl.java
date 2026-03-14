@@ -1,7 +1,7 @@
 package com.cleanroommc.javautils;
 
 import com.cleanroommc.javautils.api.JavaInstall;
-import com.cleanroommc.javautils.api.JavaVendor;
+import com.cleanroommc.javautils.api.JavaDistro;
 import com.cleanroommc.javautils.api.JavaVersion;
 import com.cleanroommc.platformutils.Platform;
 
@@ -16,7 +16,7 @@ class JavaInstallImpl implements JavaInstall {
     }
 
     private final Path home, java, javaw, javac;
-    private final JavaVendor vendor;
+    private final JavaDistro distro;
     private final JavaVersion version;
 
     private JavaInstallImpl(Path home, Path executable, String version, String vendor) throws IOException {
@@ -32,8 +32,7 @@ class JavaInstallImpl implements JavaInstall {
         }
 
         this.javac = executable.getParent().resolve(Platform.current().isWindows() ? "javac.exe" : "javac");
-
-        this.vendor = JavaVendor.find(vendor);
+        this.distro = JavaDistro.match(vendor, home);
         this.version = JavaVersion.parseOrThrow(version);
     }
 
@@ -53,8 +52,8 @@ class JavaInstallImpl implements JavaInstall {
     }
 
     @Override
-    public JavaVendor vendor() {
-        return vendor;
+    public JavaDistro distro() {
+        return distro;
     }
 
     @Override
@@ -64,7 +63,7 @@ class JavaInstallImpl implements JavaInstall {
 
     @Override
     public String toString() {
-        return this.vendor() + (this.jdk() ? " JDK" : " JRE") + " v" + this.version() + " @ " + this.home().toAbsolutePath();
+        return this.distro() + (this.jdk() ? " JDK" : " JRE") + " v" + this.version() + " @ " + this.home().toAbsolutePath();
     }
 
     @Override
@@ -86,7 +85,7 @@ class JavaInstallImpl implements JavaInstall {
         if (comparedVersion != 0) {
             return comparedVersion;
         }
-        return this.vendor().compareTo(o.vendor());
+        return this.distro().compareTo(o.distro());
     }
 
 }
