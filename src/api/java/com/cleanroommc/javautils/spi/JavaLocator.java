@@ -13,7 +13,7 @@ public interface JavaLocator {
         return locators;
     }
 
-    static <T extends JavaLocator> Optional<T> provider(Class<T> clazz) {
+    static <T extends JavaLocator> Optional<T> locator(Class<T> clazz) {
         return locators().stream().filter(clazz::isInstance).map(clazz::cast).findFirst();
     }
 
