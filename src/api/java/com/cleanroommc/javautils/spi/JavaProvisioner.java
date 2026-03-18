@@ -25,19 +25,7 @@ public interface JavaProvisioner {
     }
 
     /**
-     * Query existing Java installations matching the given version and vendor.
-     * <p>
-     * Implementations should search locally available installations.
-     * {@link JavaDistro#UNKNOWN} means any vendor will be eligible.
-     *
-     * @param version the desired version; the major component is used for matching
-     * @param vendor  the desired vendor, or {@link JavaDistro#UNKNOWN} to accept any vendor
-     * @return matching installations in a {@link Collection}
-     */
-    Collection<JavaInstall> query(JavaVersion version, JavaDistro vendor);
-
-    /**
-     * Download and provision a Java installation matching the given version and vendor,
+     * Provision a Java installation matching the given version and vendor,
      * storing it under {@code downloadDirectory}.
      * <p>
      * Implementations may cache a previously downloaded installation inside
@@ -48,6 +36,31 @@ public interface JavaProvisioner {
      * @param downloadDirectory directory under which the JDK will be stored
      * @return the provisioned installation, or {@link Optional#empty()} if provisioning failed
      */
-    JavaInstall download(JavaVersion version, JavaDistro vendor, Path downloadDirectory) throws IOException;
+    JavaInstall seek(JavaVersion version, JavaDistro vendor, Path downloadDirectory) throws IOException;
+
+    /**
+     * Query existing Java installations matching the given version and vendor.
+     * <p>
+     * Implementations should search locally available installations first, with {@link JavaLocator#all()}
+     * {@link JavaDistro#UNKNOWN} means any vendor will be eligible.
+     *
+     * @param version the desired version; the major component is used for matching
+     * @param vendor  the desired vendor, or {@link JavaDistro#UNKNOWN} to accept any vendor
+     * @return matching installations in a {@link Collection}
+     */
+    Collection<JavaInstall> find(JavaVersion version, JavaDistro vendor);
+
+    /**
+     * Query existing Java installations matching the given version and vendor.
+     * <p>
+     * Implementations should search locally available installations first with the specified locators.
+     * {@link JavaDistro#UNKNOWN} means any vendor will be eligible.
+     *
+     * @param version  the desired version; the major component is used for matching
+     * @param vendor   the desired vendor, or {@link JavaDistro#UNKNOWN} to accept any vendor
+     * @param locators specified locators used to search locally for installations
+     * @return matching installations in a {@link Collection}
+     */
+    Collection<JavaInstall> find(JavaVersion version, JavaDistro vendor, JavaLocator... locators);
 
 }
