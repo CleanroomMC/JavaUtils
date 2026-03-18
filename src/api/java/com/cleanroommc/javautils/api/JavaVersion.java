@@ -17,6 +17,24 @@ public class JavaVersion implements Comparable<JavaVersion> {
         }
     }
 
+    public static JavaVersion parseOrNull(int major) {
+        try {
+            return parseOrThrow(major);
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
+    }
+
+    public static JavaVersion parseOrThrow(int major) {
+        if (major <= 0) {
+            throw new IllegalArgumentException("Major version must be positive, got: " + major);
+        }
+        if (major <= 8) {
+            return new JavaVersion("1." + major, new int[]{1, major}, null, -1, null);
+        }
+        return new JavaVersion(String.valueOf(major), new int[]{major}, null, -1, null);
+    }
+
     public static JavaVersion parseOrThrow(String s) {
         if (s == null) {
             throw new NullPointerException("Attempted to parse null string for JavaVersion.");
@@ -33,9 +51,9 @@ public class JavaVersion implements Comparable<JavaVersion> {
         char[] chrs = s.toCharArray();
         for (int x = 0; x < chrs.length; x++) {
             char c = chrs[x];
+            int start = x;
             if (seg == Segment.VNUM || seg == Segment.BUILD) {
                 // Make a number until the next non-digit
-                int start = x;
                 int val = 0;
                 while (seg.valid(c)) {
                     val *= 10;
@@ -74,10 +92,11 @@ public class JavaVersion implements Comparable<JavaVersion> {
                         throw new IllegalArgumentException("Invalid JavaVersion: " + s);
                     }
                 }
-            } else if (seg == Segment.PRE || seg == Segment.OPT) {
-                int start = x;
+            } else {
                 while (seg.valid(c)) {
-                    if (++x == chrs.length) break;
+                    if (++x == chrs.length) {
+                        break;
+                    }
                     c = chrs[x];
                 }
 
