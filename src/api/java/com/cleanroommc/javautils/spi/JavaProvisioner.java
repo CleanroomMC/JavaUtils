@@ -41,7 +41,7 @@ public interface JavaProvisioner {
     /**
      * Query existing Java installations matching the given version and vendor.
      * <p>
-     * Implementations should search locally available installations first, with {@link JavaLocator#all()}
+     * Implementations should search locally available installations with {@link JavaLocator#all()}
      * {@link JavaDistro#UNKNOWN} means any vendor will be eligible.
      *
      * @param version the desired version; the major component is used for matching
@@ -53,7 +53,7 @@ public interface JavaProvisioner {
     /**
      * Query existing Java installations matching the given version and vendor.
      * <p>
-     * Implementations should search locally available installations first with the specified locators.
+     * Implementations should search locally available installations with the specified locators.
      * {@link JavaDistro#UNKNOWN} means any vendor will be eligible.
      *
      * @param version  the desired version; the major component is used for matching
