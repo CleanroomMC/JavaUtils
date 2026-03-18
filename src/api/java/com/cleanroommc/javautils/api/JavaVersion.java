@@ -9,7 +9,7 @@ import java.util.List;
 
 public class JavaVersion implements Comparable<JavaVersion> {
 
-    public static JavaVersion parseOrNull(String s) {
+    public static JavaVersion parse(String s) {
         try {
             return parseOrThrow(s);
         } catch (IllegalArgumentException e) {
@@ -17,7 +17,7 @@ public class JavaVersion implements Comparable<JavaVersion> {
         }
     }
 
-    public static JavaVersion parseOrNull(int major) {
+    public static JavaVersion parse(int major) {
         try {
             return parseOrThrow(major);
         } catch (IllegalArgumentException e) {
@@ -30,9 +30,9 @@ public class JavaVersion implements Comparable<JavaVersion> {
             throw new IllegalArgumentException("Major version must be positive, got: " + major);
         }
         if (major <= 8) {
-            return new JavaVersion("1." + major, new int[]{1, major}, null, -1, null);
+            return new JavaVersion("1." + major, new int[] { 1, major }, null, -1, null);
         }
-        return new JavaVersion(String.valueOf(major), new int[]{major}, null, -1, null);
+        return new JavaVersion(String.valueOf(major), new int[] { major }, null, -1, null);
     }
 
     public static JavaVersion parseOrThrow(String s) {
