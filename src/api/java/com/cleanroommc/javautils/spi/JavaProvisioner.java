@@ -4,8 +4,10 @@ import com.cleanroommc.javautils.api.JavaInstall;
 import com.cleanroommc.javautils.api.JavaDistro;
 import com.cleanroommc.javautils.api.JavaVersion;
 
+import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.ServiceLoader;
@@ -23,16 +25,16 @@ public interface JavaProvisioner {
     }
 
     /**
-     * Query for an existing Java installation matching the given version and vendor.
+     * Query existing Java installations matching the given version and vendor.
      * <p>
-     * Implementations should search locally available installations. The major component
-     * of {@code version} is used for matching; {@link JavaDistro#UNKNOWN} accepts any vendor.
+     * Implementations should search locally available installations.
+     * {@link JavaDistro#UNKNOWN} means any vendor will be eligible.
      *
      * @param version the desired version; the major component is used for matching
      * @param vendor  the desired vendor, or {@link JavaDistro#UNKNOWN} to accept any vendor
-     * @return the best matching installation, or {@link Optional#empty()} if none found
+     * @return matching installations in a {@link Collection}
      */
-    Optional<JavaInstall> query(JavaVersion version, JavaDistro vendor);
+    Collection<JavaInstall> query(JavaVersion version, JavaDistro vendor);
 
     /**
      * Download and provision a Java installation matching the given version and vendor,
@@ -46,34 +48,6 @@ public interface JavaProvisioner {
      * @param downloadDirectory directory under which the JDK will be stored
      * @return the provisioned installation, or {@link Optional#empty()} if provisioning failed
      */
-    Optional<JavaInstall> download(JavaVersion version, JavaDistro vendor, Path downloadDirectory);
-
-    /**
-     * Query for an existing installation by feature version, accepting any vendor.
-     */
-    default Optional<JavaInstall> query(int featureVersion) {
-        return query(JavaVersion.parseOrThrow(featureVersion + ".0"), JavaDistro.UNKNOWN);
-    }
-
-    /**
-     * Query for an existing installation by feature version and vendor.
-     */
-    default Optional<JavaInstall> query(int featureVersion, JavaDistro vendor) {
-        return query(JavaVersion.parseOrThrow(featureVersion + ".0"), vendor);
-    }
-
-    /**
-     * Download a Java installation by feature version, using the provider's default vendor.
-     */
-    default Optional<JavaInstall> download(int featureVersion, Path downloadDirectory) {
-        return download(JavaVersion.parseOrThrow(featureVersion + ".0"), JavaDistro.UNKNOWN, downloadDirectory);
-    }
-
-    /**
-     * Download a Java installation by feature version and vendor.
-     */
-    default Optional<JavaInstall> download(int featureVersion, JavaDistro vendor, Path downloadDirectory) {
-        return download(JavaVersion.parseOrThrow(featureVersion + ".0"), vendor, downloadDirectory);
-    }
+    JavaInstall download(JavaVersion version, JavaDistro vendor, Path downloadDirectory) throws IOException;
 
 }
