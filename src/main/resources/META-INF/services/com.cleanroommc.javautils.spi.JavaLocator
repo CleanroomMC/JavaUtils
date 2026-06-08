@@ -8,3 +8,4 @@ com.cleanroommc.javautils.locators.JavaHomeJavaLocator
 com.cleanroommc.javautils.locators.MinecraftJavaLocator
 com.cleanroommc.javautils.locators.SDKManProvisionedJavaLocator
 com.cleanroommc.javautils.locators.WindowsRegistryJavaLocator
+com.cleanroommc.javautils.locators.CleanroomHomeJavaLocator
