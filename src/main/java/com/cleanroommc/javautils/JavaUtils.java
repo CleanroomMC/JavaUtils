@@ -18,11 +18,11 @@ public final class JavaUtils {
 
     public static final String JAVA_EXECUTABLE = Platform.current().isWindows() ? "java.exe" : "java";
 
-    public static File currentJarLocation() {
+    public static File currentJarLocation() throws IOException {
         return jarLocationOf(JavaUtils.class);
     }
 
-    public static File jarLocationOf(Class<?> clazz) {
+    public static File jarLocationOf(Class<?> clazz) throws IOException {
         String url = null;
         try {
             url = clazz.getProtectionDomain().getCodeSource().getLocation().toString();
@@ -31,12 +31,12 @@ public final class JavaUtils {
         if (url == null) {
             final URL resource = clazz.getResource(clazz.getSimpleName() + ".class");
             if (resource == null) {
-                throw new RuntimeException("Could not find resource of " + clazz.getSimpleName() + ".class!");
+                throw new IOException("Could not find resource of " + clazz.getSimpleName() + ".class!");
             }
             final String resourceString = resource.toString();
             final String suffix = clazz.getCanonicalName().replace('.', '/') + ".class";
             if (!resourceString.endsWith(suffix)) {
-                throw new RuntimeException("Malformed URL for " + clazz.getSimpleName() + ".class: " + url);
+                throw new IOException("Malformed URL for " + clazz.getSimpleName() + ".class: " + url);
             }
             // Strip the class' path from the URL string
             url = resourceString.substring(0, resourceString.length() - suffix.length());
@@ -57,7 +57,7 @@ public final class JavaUtils {
                 url = url.substring(5);
                 return new File(url);
             }
-            throw new IllegalArgumentException("Invalid URL: " + url, e);
+            throw new IOException("Invalid URL: " + url, e);
         }
     }
 
@@ -129,7 +129,7 @@ public final class JavaUtils {
             }
             throw new IOException("Invalid location for a Java install. Searched in: " + path);
         }
-        throw new IOException("Path (" + path + ") does not exist in filesystem.");
+        throw new IOException(path + " does not exist in filesystem.");
     }
 
     private JavaUtils() { }
