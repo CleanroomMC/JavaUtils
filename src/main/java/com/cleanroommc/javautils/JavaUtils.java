@@ -91,7 +91,11 @@ public final class JavaUtils {
 
             process.waitFor();
         } catch (IOException | InterruptedException e) {
-            throw new IOException("Unable to parse install", e);
+            throw new IOException("Unable to parse " + location + " as an install", e);
+        }
+
+        if (output.size() < 2) {
+            throw new IOException("Unable to parse " + location + " as an install");
         }
 
         // 0: java.version, 1: java.vendor
