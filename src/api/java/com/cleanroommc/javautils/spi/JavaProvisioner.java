@@ -7,60 +7,100 @@ import com.cleanroommc.javautils.api.JavaVersion;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.ServiceLoader;
 
+/**
+ * Service provider interface for provisioning {@link JavaInstall}s.
+ * <p>
+ * A provisioner resolves a Java installation matching a requested version and vendor. It first
+ * <em>gathers</em> a suitable installation that already exists locally; only when none is found does
+ * it <em>download</em> one into the given directory. Either way the caller receives a usable
+ * {@link JavaInstall}.
+ * <p>
+ * Implementations are registered as {@link ServiceLoader} services and located at runtime via
+ * {@link #provisioners()} or {@link #provisioner(Class)}.
+ *
+ * @since X.Y.Z
+ */
 public interface JavaProvisioner {
 
+    /**
+     * Loads all registered {@code JavaProvisioner} services via the {@link ServiceLoader} mechanism.
+     *
+     * @return a mutable list of every {@code JavaProvisioner} provided on the classpath, empty if none are registered
+     */
     static List<JavaProvisioner> provisioners() {
         List<JavaProvisioner> provisioners = new ArrayList<>();
         ServiceLoader.load(JavaProvisioner.class).iterator().forEachRemaining(provisioners::add);
         return provisioners;
     }
 
+    /**
+     * Finds the first registered provisioner that is an instance of the given type.
+     *
+     * @param clazz the concrete provisioner type to search for
+     * @param <T>   the provisioner type
+     * @return an {@link Optional} holding the first matching provisioner, or empty if none match
+     */
     static <T extends JavaProvisioner> Optional<T> provisioner(Class<T> clazz) {
         return provisioners().stream().filter(clazz::isInstance).map(clazz::cast).findFirst();
     }
 
     /**
-     * Provision a Java installation matching the given version and vendor,
-     * storing it under {@code downloadDirectory}.
+     * Provisions a Java installation matching the given version and vendor.
      * <p>
-     * Implementations may cache a previously downloaded installation inside
-     * {@code downloadDirectory} and return it without re-downloading.
+     * The implementation first gathers an existing local installation that satisfies the request
+     * (including any previously downloaded into {@code directory}), if one is found it is returned
+     * without downloading. Otherwise, a matching release is downloaded into {@code directory}.
      *
-     * @param version           the desired version; the major component is used to select a release
-     * @param vendor            the desired vendor, or {@link JavaDistro#UNKNOWN} to use the provider default
-     * @param downloadDirectory directory under which the JDK will be stored
-     * @return the provisioned installation, or {@link Optional#empty()} if provisioning failed
+     * @param version   the desired version of the java install
+     * @param vendor    the desired vendor or {@link JavaDistro#UNKNOWN} to use the provider default
+     * @param directory directory under which a downloaded JDK is stored, and searched for a previously provisioned one
+     * @return          the provisioned installation
+     * @throws          IOException if no matching installation exists and one could not be downloaded
      */
-    JavaInstall seek(JavaVersion version, JavaDistro vendor, Path downloadDirectory) throws IOException;
+    JavaInstall resolve(JavaVersion version, JavaDistro vendor, Path directory) throws IOException;
 
     /**
-     * Query existing Java installations matching the given version and vendor.
-     * <p>
-     * Implementations should search locally available installations with {@link JavaLocator#all()}
-     * {@link JavaDistro#UNKNOWN} means any vendor will be eligible.
+     * Provisions a Java installation of the given version from any vendor.
      *
-     * @param version the desired version; the major component is used for matching
-     * @param vendor  the desired vendor, or {@link JavaDistro#UNKNOWN} to accept any vendor
-     * @return matching installations in a {@link Collection}
+     * @param version   the desired version of the java install
+     * @param directory directory under which a downloaded JDK is stored, and searched for a previously provisioned one
+     * @return          the provisioned installation
+     * @throws          IOException if no matching installation exists and one could not be downloaded
+     * @see             #resolve(JavaVersion, JavaDistro, Path)
      */
-    Collection<JavaInstall> find(JavaVersion version, JavaDistro vendor);
+    default JavaInstall resolve(JavaVersion version, Path directory) throws IOException {
+        return this.resolve(version, JavaDistro.UNKNOWN, directory);
+    }
 
     /**
-     * Query existing Java installations matching the given version and vendor.
-     * <p>
-     * Implementations should search locally available installations with the specified locators.
-     * {@link JavaDistro#UNKNOWN} means any vendor will be eligible.
+     * Provisions a Java installation of the given feature version and vendor.
      *
-     * @param version  the desired version; the major component is used for matching
-     * @param vendor   the desired vendor, or {@link JavaDistro#UNKNOWN} to accept any vendor
-     * @param locators specified locators used to search locally for installations
-     * @return matching installations in a {@link Collection}
+     * @param majorVersion the desired feature (major) version, e.g. {@code 8}, {@code 17}, {@code 21}
+     * @param vendor       the desired vendor or {@link JavaDistro#UNKNOWN} to use the provider default
+     * @param directory    directory under which a downloaded JDK is stored, and searched for a previously provisioned one
+     * @return             the provisioned installation
+     * @throws             IOException if no matching installation exists and one could not be downloaded
+     * @see                #resolve(JavaVersion, JavaDistro, Path)
      */
-    Collection<JavaInstall> find(JavaVersion version, JavaDistro vendor, JavaLocator... locators);
+    default JavaInstall resolve(int majorVersion, JavaDistro vendor, Path directory) throws IOException {
+        return this.resolve(JavaVersion.parseOrThrow(majorVersion), vendor, directory);
+    }
+
+    /**
+     * Provisions a Java installation of the given feature version from any vendor.
+     *
+     * @param majorVersion the desired feature (major) version, e.g. {@code 8}, {@code 17}, {@code 21}
+     * @param directory    directory under which a downloaded JDK is stored, and searched for a previously provisioned one
+     * @return             the provisioned installation
+     * @throws             IOException if no matching installation exists and one could not be downloaded
+     * @see                #resolve(JavaVersion, JavaDistro, Path)
+     */
+    default JavaInstall resolve(int majorVersion, Path directory) throws IOException {
+        return this.resolve(majorVersion, JavaDistro.UNKNOWN, directory);
+    }
 
 }
