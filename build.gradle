@@ -1,6 +1,7 @@
 plugins {
     id 'java-library'
     id 'maven-publish'
+    id 'com.gradleup.shadow' version '9.+'
 }
 
 group = 'com.cleanroommc'
@@ -41,14 +42,26 @@ repositories {
     mavenCentral()
 }
 
+configurations {
+    shade
+    implementation.extendsFrom shade
+}
+
 dependencies {
     api 'org.slf4j:slf4j-api:2.0.17'
     api 'com.cleanroommc:platform-utils:2.0.0'
+
+    shade 'com.google.code.gson:gson:2.10.1'
+    shade 'org.apache.commons:commons-compress:1.26.0'
 
     runtimeOnly 'org.slf4j:slf4j-simple:2.0.17'
 
     testImplementation platform('org.junit:junit-bom:5.10.0')
     testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+    // commons-compress needs commons-codec to *write* tar archives in the extraction tests
+    testImplementation 'commons-codec:commons-codec:1.16.1'
 }
 
 test {
@@ -64,6 +77,18 @@ tasks.named('compileCheckerJava', JavaCompile).configure {
 jar {
     from sourceSets.api.output.classesDirs
     from sourceSets.checker.output.classesDirs
+}
+
+shadowJar {
+    archiveClassifier = 'all'
+
+    from sourceSets.api.output.classesDirs
+    from sourceSets.checker.output.classesDirs
+
+    relocate 'com.google.gson', 'com.cleanroommc.javautils.shadow.gson'
+    relocate 'org.apache.commons.compress', 'com.cleanroommc.javautils.shadow.compress'
+
+    mergeServiceFiles()
 }
 
 tasks.register('apiJar', Jar).configure {
@@ -84,8 +109,7 @@ tasks.register('checkerJar', Jar).configure {
     group 'build'
     archiveClassifier = 'checker'
 
-    from sourceSets.checker.output.classesDirs
-    from sourceSets.checker.output.resourcesDir
+    from sourceSets.checker.output
 
     manifest {
         attributes('Main-Class': 'com.cleanroommc.javautils.checker.JavaChecker')
@@ -118,6 +142,81 @@ tasks.register('nolocatorSourceJar', Jar).configure {
     from sourceSets.checker.allSource
 }
 
+tasks.register('noprovisionerJar', Jar).configure {
+    group 'build'
+    archiveClassifier = 'noprovisioner'
+
+    from (sourceSets.main.output.classesDirs) {
+        exclude 'com/cleanroommc/javautils/provisioners/**'
+    }
+    from (sourceSets.api.output.classesDirs) {
+        exclude 'com/cleanroommc/javautils/spi/**'
+    }
+    from sourceSets.checker.output.classesDirs
+}
+
+tasks.register('noprovisionerSourceJar', Jar).configure {
+    group 'build'
+    archiveClassifier = 'noprovisioner-source'
+
+    from (sourceSets.main.allSource) {
+        exclude 'com/cleanroommc/javautils/provisioners/**'
+    }
+    from (sourceSets.api.allSource) {
+        exclude 'com/cleanroommc/javautils/spi/**'
+    }
+    from sourceSets.checker.allSource
+}
+
+tasks.register('minimalJar', Jar).configure {
+    group 'build'
+    archiveClassifier = 'minimal'
+
+    from (sourceSets.main.output.classesDirs) {
+        exclude 'com/cleanroommc/javautils/locators/**'
+        exclude 'com/cleanroommc/javautils/provisioners/**'
+    }
+    from (sourceSets.api.output.classesDirs) {
+        exclude 'com/cleanroommc/javautils/spi/**'
+    }
+    from sourceSets.checker.output.classesDirs
+}
+
+tasks.register('minimalSourceJar', Jar).configure {
+    group 'build'
+    archiveClassifier = 'minimal-source'
+
+    from (sourceSets.main.allSource) {
+        exclude 'com/cleanroommc/javautils/locators/**'
+        exclude 'com/cleanroommc/javautils/provisioners/**'
+    }
+    from (sourceSets.api.allSource) {
+        exclude 'com/cleanroommc/javautils/spi/**'
+    }
+    from sourceSets.checker.allSource
+}
+
+// External library coordinates, declared once and reused across variant POMs
+def libDeps = [
+        slf4jApi: ['org.slf4j', 'slf4j-api', '2.0.17', 'compile'],
+        platform: ['com.cleanroommc', 'platform-utils', '2.0.0', 'compile'],
+        gson: ['com.google.code.gson', 'gson', '2.10.1', 'runtime'],
+        compress: ['org.apache.commons', 'commons-compress', '1.26.0', 'runtime'],
+        slf4jSimple: ['org.slf4j', 'slf4j-simple', '2.0.17', 'runtime']
+]
+
+// Builds a withXml action that appends the given dependencies to a generated POM
+def pomDependencies = { deps -> { xml ->
+    def depsNode = xml.asNode().appendNode('dependencies')
+    deps.each { d ->
+        def dep = depsNode.appendNode('dependency')
+        dep.appendNode('groupId', d[0])
+        dep.appendNode('artifactId', d[1])
+        dep.appendNode('version', d[2])
+        dep.appendNode('scope', d[3])
+    }
+}}
+
 publishing {
     repositories {
         maven {
@@ -130,11 +229,33 @@ publishing {
         mavenJava(MavenPublication) {
             artifactId 'java-utils'
             from components.java
-            artifact tasks.apiJar
-            artifact tasks.apiSourceJar
-            artifact tasks.checkerJar
-            artifact tasks.nolocatorJar
-            artifact tasks.nolocatorSourceJar
+        }
+        mavenApi(MavenPublication) {
+            artifactId 'java-utils-api'
+            artifact(tasks.apiJar) { classifier = null }
+            artifact(tasks.apiSourceJar) { classifier = 'sources' }
+        }
+        mavenChecker(MavenPublication) {
+            artifactId 'java-utils-checker'
+            artifact(tasks.checkerJar) { classifier = null }
+        }
+        mavenNolocator(MavenPublication) {
+            artifactId 'java-utils-nolocator'
+            artifact(tasks.nolocatorJar) { classifier = null }
+            artifact(tasks.nolocatorSourceJar) { classifier = 'sources' }
+            pom.withXml(pomDependencies([libDeps.slf4jApi, libDeps.platform, libDeps.gson, libDeps.compress, libDeps.slf4jSimple]))
+        }
+        mavenNoprovisioner(MavenPublication) {
+            artifactId 'java-utils-noprovisioner'
+            artifact(tasks.noprovisionerJar) { classifier = null }
+            artifact(tasks.noprovisionerSourceJar) { classifier = 'sources' }
+            pom.withXml(pomDependencies([libDeps.slf4jApi, libDeps.platform, libDeps.slf4jSimple]))
+        }
+        mavenMinimal(MavenPublication) {
+            artifactId 'java-utils-minimal'
+            artifact(tasks.minimalJar) { classifier = null }
+            artifact(tasks.minimalSourceJar) { classifier = 'sources' }
+            pom.withXml(pomDependencies([libDeps.platform]))
         }
     }
 }
