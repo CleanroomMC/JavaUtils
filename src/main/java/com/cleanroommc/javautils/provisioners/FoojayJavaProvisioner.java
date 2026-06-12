@@ -6,8 +6,9 @@ import com.cleanroommc.javautils.api.JavaInstall;
 import com.cleanroommc.javautils.api.JavaVersion;
 import com.cleanroommc.javautils.spi.JavaProvisioner;
 import com.cleanroommc.platformutils.Platform;
-import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonParseException;
 import com.google.gson.JsonParser;
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
@@ -22,6 +23,7 @@ import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.FileSystemException;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -30,9 +32,11 @@ import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.PosixFilePermission;
 import java.nio.file.attribute.PosixFilePermissions;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Stream;
 import java.util.zip.ZipEntry;
@@ -62,20 +66,20 @@ public class FoojayJavaProvisioner implements JavaProvisioner {
 
     @Override
     public JavaInstall resolve(JavaVersion version, JavaDistro vendor, Path directory) throws IOException {
-        int featureVersion = version.major();
-        JavaInstall existing = gather(featureVersion, vendor, directory);
+        JavaInstall existing = gather(version, vendor, directory);
         if (existing != null) {
-            LOGGER.debug("Reusing existing Java install for {} {}: {}", featureVersion, vendor, existing);
+            LOGGER.debug("Reusing existing Java install for {} {}: {}", version, vendor, existing);
             return existing;
         }
-        return download(featureVersion, vendor, directory);
+        return download(version, vendor, directory);
     }
 
-    private JavaInstall gather(int featureVersion, JavaDistro vendor, Path directory) {
+    private JavaInstall gather(JavaVersion version, JavaDistro vendor, Path directory) {
+        int featureVersion = version.major();
         Set<JavaInstall> candidates = new LinkedHashSet<>();
         scan(directory, MAX_SCAN_DEPTH, candidates);
         for (JavaInstall install : candidates) {
-            if (matches(install, featureVersion, vendor)) {
+            if (matches(install, featureVersion, vendor) && versionSatisfies(install.version(), version)) {
                 return install;
             }
         }
@@ -109,7 +113,7 @@ public class FoojayJavaProvisioner implements JavaProvisioner {
         }
     }
 
-    private JavaInstall download(int featureVersion, JavaDistro vendor, Path directory) throws IOException {
+    private JavaInstall download(JavaVersion version, JavaDistro vendor, Path directory) throws IOException {
         Platform platform = Platform.current();
         JavaDistro distro = vendor == JavaDistro.UNKNOWN ? DEFAULT_DISTRO : vendor;
         String distributionId = distro.foojayId();
@@ -118,26 +122,15 @@ public class FoojayJavaProvisioner implements JavaProvisioner {
         }
         String archiveType = platform.isWindows() ? "zip" : "tar.gz";
 
-        StringBuilder query = new StringBuilder(DISCO_PACKAGES);
-        query.append("?version=").append(featureVersion);
-        query.append("&distribution=").append(distributionId);
-        query.append("&architecture=").append(architecture(platform));
-        query.append("&operating_system=").append(operatingSystem(platform));
-        query.append("&archive_type=").append(archiveType);
-        query.append("&package_type=jdk");
-        query.append("&latest=available");
-        query.append("&directly_downloadable=true");
-        query.append("&release_status=ga");
-
-        JsonObject pkg = firstPackage(query.toString(), featureVersion, distro);
-        String filename = pkg.get("filename").getAsString();
-        String downloadUrl = pkg.getAsJsonObject("links").get("pkg_download_redirect").getAsString();
+        String query = packagesQuery(version, distributionId, platform, archiveType);
+        JsonObject pkg = firstPackage(query, version, distro);
+        String filename = requireString(pkg, "filename");
+        String downloadUrl = requireString(requireObject(pkg, "links"), "pkg_download_redirect");
 
         Files.createDirectories(directory);
         Path archive = directory.resolve(filename);
         try {
             httpDownload(downloadUrl, archive);
-
             Path destination = directory.resolve(stripExtension(filename));
             if (Files.exists(destination)) {
                 deleteRecursively(destination);
@@ -148,7 +141,6 @@ public class FoojayJavaProvisioner implements JavaProvisioner {
             } else {
                 extractTarGz(archive, destination);
             }
-
             Path home = findJavaHome(destination);
             if (home == null) {
                 throw new IOException("Downloaded archive " + filename + " did not contain a Java install");
@@ -159,34 +151,90 @@ public class FoojayJavaProvisioner implements JavaProvisioner {
         }
     }
 
-    private JsonObject firstPackage(String url, int featureVersion, JavaDistro distro) throws IOException {
-        JsonObject root = JsonParser.parseString(httpGet(url)).getAsJsonObject();
-        JsonArray result = root.getAsJsonArray("result");
-        if (result == null || result.isEmpty()) {
-            throw new IOException("No Foojay package found for Java " + featureVersion + " (" + distro + ") on this platform");
+    /**
+     * Builds the Foojay Disco {@code packages} query URL for a request.
+     * <p>
+     * A feature-only request appends {@code latest=available} so Foojay returns
+     * the newest GA build of that feature. A specific request (e.g. {@code 17.0.4}) must omit
+     * {@code latest=available} as it overrides the pinned patch and would otherwise return the newest
+     * build of the feature instead of the exact version asked for.
+     */
+    private static String packagesQuery(JavaVersion version, String distributionId, Platform platform, String archiveType) {
+        StringBuilder query = new StringBuilder(DISCO_PACKAGES);
+        query.append("?version=").append(foojayVersion(version));
+        query.append("&distribution=").append(distributionId);
+        query.append("&architecture=").append(architecture(platform));
+        query.append("&operating_system=").append(operatingSystem(platform));
+        query.append("&archive_type=").append(archiveType);
+        query.append("&package_type=jdk");
+        if (numericComponents(version).length <= 1) {
+            query.append("&latest=available");
         }
-        return result.get(0).getAsJsonObject();
+        query.append("&directly_downloadable=true");
+        query.append("&release_status=ga");
+        return query.toString();
+    }
+
+    private JsonObject firstPackage(String url, JavaVersion version, JavaDistro distro) throws IOException {
+        return selectPackage(httpGet(url), version, distro);
+    }
+
+    /**
+     * Parses a Foojay {@code packages} response and returns the first package.
+     * Every unexpected shape (malformed JSON, missing, non-array or empty {@code result}, non-object entry) is
+     * thrown as an {@link IOException} so callers never face an unchecked Gson exception.
+     */
+    private static JsonObject selectPackage(String json, JavaVersion version, JavaDistro distro) throws IOException {
+        JsonObject root = parseObject(json);
+        JsonElement resultElement = root.get("result");
+        if (resultElement == null || !resultElement.isJsonArray() || resultElement.getAsJsonArray().isEmpty()) {
+            throw new IOException("No Foojay package found for Java " + version + " (" + distro + ") on this platform");
+        }
+        JsonElement first = resultElement.getAsJsonArray().get(0);
+        if (!first.isJsonObject()) {
+            throw new IOException("Foojay returned a malformed package entry for Java " + version + " (" + distro + ")");
+        }
+        return first.getAsJsonObject();
+    }
+
+    private static JsonObject parseObject(String json) throws IOException {
+        try {
+            JsonElement element = JsonParser.parseString(json);
+            if (!element.isJsonObject()) {
+                throw new IOException("Foojay response was not a JSON object");
+            }
+            return element.getAsJsonObject();
+        } catch (JsonParseException e) {
+            throw new IOException("Foojay returned a malformed JSON response", e);
+        }
+    }
+
+    private static String requireString(JsonObject object, String field) throws IOException {
+        JsonElement element = object.get(field);
+        if (element == null || !element.isJsonPrimitive()) {
+            throw new IOException("Foojay package is missing the '" + field + "' string field");
+        }
+        return element.getAsString();
+    }
+
+    private static JsonObject requireObject(JsonObject object, String field) throws IOException {
+        JsonElement element = object.get(field);
+        if (element == null || !element.isJsonObject()) {
+            throw new IOException("Foojay package is missing the '" + field + "' object field");
+        }
+        return element.getAsJsonObject();
     }
 
     private static String operatingSystem(Platform platform) {
-        if (platform.isWindows()) {
-            return "windows";
-        }
-        if (platform.isMacOS()) {
-            return "macos";
-        }
-        return "linux";
+        return platform.isWindows() ? "windows" : platform.isMacOS() ? "macos" : "linux";
     }
 
     private static String architecture(Platform platform) {
-        if (platform.isArm()) {
-            return platform.is64Bit() ? "aarch64" : "arm";
-        }
-        return platform.is64Bit() ? "x64" : "x86";
+        return platform.isArm() ? (platform.is64Bit() ? "aarch64" : "arm") : (platform.is64Bit() ? "x64" : "x86");
     }
 
     private static String httpGet(String url) throws IOException {
-        HttpURLConnection connection = open(url);
+        HttpURLConnection connection = open(url, "application/json");
         try {
             int code = connection.getResponseCode();
             if (code != HttpURLConnection.HTTP_OK) {
@@ -207,7 +255,7 @@ public class FoojayJavaProvisioner implements JavaProvisioner {
     }
 
     private static void httpDownload(String url, Path target) throws IOException {
-        HttpURLConnection connection = open(url);
+        HttpURLConnection connection = open(url, "*/*");
         try {
             int code = connection.getResponseCode();
             if (code != HttpURLConnection.HTTP_OK) {
@@ -221,13 +269,13 @@ public class FoojayJavaProvisioner implements JavaProvisioner {
         }
     }
 
-    private static HttpURLConnection open(String url) throws IOException {
+    private static HttpURLConnection open(String url, String accept) throws IOException {
         HttpURLConnection connection = (HttpURLConnection) new URL(url).openConnection();
         connection.setInstanceFollowRedirects(true);
         connection.setConnectTimeout(CONNECT_TIMEOUT);
         connection.setReadTimeout(READ_TIMEOUT);
         connection.setRequestProperty("User-Agent", USER_AGENT);
-        connection.setRequestProperty("Accept", "application/json");
+        connection.setRequestProperty("Accept", accept);
         return connection;
     }
 
@@ -236,11 +284,19 @@ public class FoojayJavaProvisioner implements JavaProvisioner {
             ZipEntry entry;
             while ((entry = zip.getNextEntry()) != null) {
                 Path resolved = resolveEntry(destination, entry.getName());
-                if (entry.isDirectory()) {
-                    Files.createDirectories(resolved);
-                } else {
-                    Files.createDirectories(resolved.getParent());
-                    Files.copy(zip, resolved, StandardCopyOption.REPLACE_EXISTING);
+                if (conflicts(destination, resolved, entry.isDirectory())) {
+                    skipConflictingEntry(entry.getName());
+                    continue;
+                }
+                try {
+                    if (entry.isDirectory()) {
+                        Files.createDirectories(resolved);
+                    } else {
+                        Files.createDirectories(resolved.getParent());
+                        Files.copy(zip, resolved, StandardCopyOption.REPLACE_EXISTING);
+                    }
+                } catch (FileSystemException e) {
+                    skipConflictingEntry(entry.getName());
                 }
             }
         }
@@ -251,19 +307,48 @@ public class FoojayJavaProvisioner implements JavaProvisioner {
             TarArchiveEntry entry;
             while ((entry = tar.getNextEntry()) != null) {
                 Path resolved = resolveEntry(destination, entry.getName());
-                if (entry.isDirectory()) {
-                    Files.createDirectories(resolved);
-                } else if (entry.isSymbolicLink()) {
-                    Files.createDirectories(resolved.getParent());
-                    Files.deleteIfExists(resolved);
-                    Files.createSymbolicLink(resolved, resolved.getParent().resolve(entry.getLinkName()).normalize());
-                } else {
-                    Files.createDirectories(resolved.getParent());
-                    Files.copy(tar, resolved, StandardCopyOption.REPLACE_EXISTING);
-                    applyMode(resolved, entry.getMode());
+                if (conflicts(destination, resolved, entry.isDirectory())) {
+                    skipConflictingEntry(entry.getName());
+                    continue;
+                }
+                try {
+                    if (entry.isDirectory()) {
+                        Files.createDirectories(resolved);
+                    } else if (entry.isSymbolicLink()) {
+                        Files.createDirectories(resolved.getParent());
+                        Files.deleteIfExists(resolved);
+                        Files.createSymbolicLink(resolved, resolved.getParent().resolve(entry.getLinkName()).normalize());
+                    } else {
+                        Files.createDirectories(resolved.getParent());
+                        Files.copy(tar, resolved, StandardCopyOption.REPLACE_EXISTING);
+                        applyMode(resolved, entry.getMode());
+                    }
+                } catch (FileSystemException e) {
+                    skipConflictingEntry(entry.getName());
                 }
             }
         }
+    }
+
+    /**
+     * Detects archive entries that no filesystem can place. Some distributions (e.g. Mandrel) ship
+     * archives that use the same name for both a file and a directory.
+     * An entry can collide with either because an ancestor was already written as a regular file,
+     * or because the target path already exists.
+     */
+    private static boolean conflicts(Path destination, Path resolved, boolean directory) {
+        for (Path parent = resolved.getParent();
+             parent != null && parent.startsWith(destination) && !parent.equals(destination);
+             parent = parent.getParent()) {
+            if (Files.isRegularFile(parent)) {
+                return true;
+            }
+        }
+        return directory ? Files.isRegularFile(resolved) : Files.isDirectory(resolved);
+    }
+
+    private static void skipConflictingEntry(String name) {
+        LOGGER.debug("Skipping archive entry that conflicts with an existing path: {}", name);
     }
 
     private static Path resolveEntry(Path destination, String name) throws IOException {
@@ -294,6 +379,88 @@ public class FoojayJavaProvisioner implements JavaProvisioner {
             }
         }
         return new String(flags);
+    }
+
+    /**
+     * Renders the Foojay {@code version} query value for a requested {@link JavaVersion}.
+     * A feature-only request (e.g. {@code 17}) stays a single number so the latest GA build of that
+     * feature is selected. A specific request (e.g. {@code 17.0.4}) is passed through verbatim.
+     * Legacy {@code 1.x} input is normalized to its feature number ({@code 1.8} -> {@code 8}),
+     * while this wasn't necessary, foojay supports it.
+     */
+    private static String foojayVersion(JavaVersion version) {
+        int[] parts = numericComponents(version);
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < parts.length; i++) {
+            if (i > 0) {
+                sb.append('.');
+            }
+            sb.append(parts[i]);
+        }
+        return sb.toString();
+    }
+
+    /**
+     * Returns {@code true} when an existing install may satisfy the request.
+     * A feature-only request matches any build of that feature.
+     * A more specific request requires the install to match every component the caller pinned.
+     */
+    private static boolean versionSatisfies(JavaVersion installed, JavaVersion requested) {
+        int[] request = numericComponents(requested);
+        if (request.length <= 1) {
+            return true;
+        }
+        int[] have = numericComponents(installed);
+        if (have.length < request.length) {
+            return false;
+        }
+        for (int i = 0; i < request.length; i++) {
+            if (have[i] != request[i]) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Extracts the leading numeric version components (major first) and
+     * dropping the legacy {@code 1.} prefix. Stopping at any pre-release/build metadata.
+     */
+    private static int[] numericComponents(JavaVersion version) {
+        String raw = version.toString().trim();
+        List<Integer> parts = new ArrayList<>();
+        StringBuilder number = new StringBuilder();
+        for (int i = 0; i < raw.length(); i++) {
+            char c = raw.charAt(i);
+            if (c >= '0' && c <= '9') {
+                number.append(c);
+            } else if (c == '.' || c == '_') {
+                flush(parts, number);
+            } else {
+                // '+' build metadata or '-' pre-release
+                flush(parts, number);
+                break;
+            }
+        }
+        flush(parts, number);
+        if (parts.size() > 1 && parts.get(0) == 1) {
+            parts.remove(0); // 1.8 -> 8
+        }
+        if (parts.isEmpty()) {
+            parts.add(version.major());
+        }
+        int[] out = new int[parts.size()];
+        for (int i = 0; i < parts.size(); i++) {
+            out[i] = parts.get(i);
+        }
+        return out;
+    }
+
+    private static void flush(List<Integer> parts, StringBuilder number) {
+        if (number.length() > 0) {
+            parts.add(Integer.parseInt(number.toString()));
+            number.setLength(0);
+        }
     }
 
     private static String stripExtension(String filename) {
