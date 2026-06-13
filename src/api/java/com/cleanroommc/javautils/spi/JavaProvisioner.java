@@ -49,6 +49,31 @@ public interface JavaProvisioner {
     }
 
     /**
+     * Resolves the configured default {@link JavaDistro} for a provisioner type from a system
+     * property, falling back to {@code fallback} when the property is unset or unrecognized.
+     * <p>
+     * The property key is the provisioner's fully qualified class name suffixed with
+     * {@code .defaultDistro}, so every provisioner class is configured independently.
+     * For example:
+     * <pre>{@code -Dcom.cleanroommc.javautils.provisioners.FoojayJavaProvisioner.defaultDistro=zulu}</pre>
+     * <p>
+     * The value is matched against known distributions via {@link JavaDistro#match(String)} (vendor
+     * name or alias); an empty, missing, or unrecognized value yields {@code fallback}.
+     *
+     * @param type     the provisioner class whose property to read
+     * @param fallback the distro to use when the property is unset or unrecognized, returned as-is
+     * @return         the configured {@link JavaDistro}, or {@code fallback}
+     */
+    static JavaDistro configuredDefaultDistro(Class<? extends JavaProvisioner> type, JavaDistro fallback) {
+        String value = System.getProperty(type.getName() + ".defaultDistro");
+        if (value == null || value.trim().isEmpty()) {
+            return fallback;
+        }
+        JavaDistro matched = JavaDistro.match(value.trim());
+        return matched == JavaDistro.UNKNOWN ? fallback : matched;
+    }
+
+    /**
      * Provisions a Java installation matching the given version and vendor.
      * <p>
      * The implementation first gathers an existing local installation that satisfies the request
@@ -62,6 +87,29 @@ public interface JavaProvisioner {
      * @throws          IOException if no matching installation exists and one could not be downloaded
      */
     JavaInstall resolve(JavaVersion version, JavaDistro vendor, Path directory) throws IOException;
+
+    /**
+     * Checks whether the given vendor publishes a downloadable distribution of the requested version
+     * for the caller's current operating system and architecture.
+     * <p>
+     * This is a pure availability query against the provider, it neither gathers nor downloads
+     * anything. A {@link JavaDistro#UNKNOWN} vendor is treated as the provider default.
+     *
+     * @param version the desired version of the java install
+     * @param vendor  the vendor to check, or {@link JavaDistro#UNKNOWN} for the provider default
+     * @return        {@code true} if at least one matching package exists for this platform
+     * @throws        IOException if availability could not be determined (e.g. the backing service is unreachable)
+     */
+    boolean exists(JavaVersion version, JavaDistro vendor) throws IOException;
+
+    /**
+     * Returns the vendor this provisioner falls back to when a request is made with
+     * {@link JavaDistro#UNKNOWN}. This is the distribution that {@link #resolve(JavaVersion, Path)}
+     * and the other UNKNOWN-vendor overloads ultimately provision from.
+     *
+     * @return the provider's default {@link JavaDistro}, never {@code null}
+     */
+    JavaDistro defaultDistro();
 
     /**
      * Provisions a Java installation of the given version from any vendor.
@@ -101,6 +149,20 @@ public interface JavaProvisioner {
      */
     default JavaInstall resolve(int majorVersion, Path directory) throws IOException {
         return this.resolve(majorVersion, JavaDistro.UNKNOWN, directory);
+    }
+
+    /**
+     * Checks whether the given vendor publishes a distribution of the given feature version for the
+     * caller's current platform.
+     *
+     * @param majorVersion the desired feature (major) version, e.g. {@code 8}, {@code 17}, {@code 21}
+     * @param vendor       the vendor to check, or {@link JavaDistro#UNKNOWN} for the provider default
+     * @return             {@code true} if at least one matching package exists for this platform
+     * @throws             IOException if availability could not be determined (e.g. the backing service is unreachable)
+     * @see                #exists(JavaVersion, JavaDistro)
+     */
+    default boolean exists(int majorVersion, JavaDistro vendor) throws IOException {
+        return this.exists(JavaVersion.parseOrThrow(majorVersion), vendor);
     }
 
 }

@@ -58,7 +58,7 @@ public class FoojayJavaProvisioner implements JavaProvisioner {
     private static final String USER_AGENT = "CleanroomMC_JavaUtils/" + VERSION;
     private static final int CONNECT_TIMEOUT = 15_000;
     private static final int READ_TIMEOUT = 60_000;
-    private static final JavaDistro DEFAULT_DISTRO = JavaDistro.TEMURIN;
+    private static final JavaDistro FALLBACK_DISTRO = JavaDistro.TEMURIN;
     /**
      * Depth of the recursive scan of the target directory when gathering previously provisioned installations.
      */
@@ -72,6 +72,24 @@ public class FoojayJavaProvisioner implements JavaProvisioner {
             return existing;
         }
         return download(version, vendor, directory);
+    }
+
+    @Override
+    public boolean exists(JavaVersion version, JavaDistro vendor) throws IOException {
+        JavaDistro distro = vendor == JavaDistro.UNKNOWN ? defaultDistro() : vendor;
+        String distributionId = distro.foojayId();
+        if (distributionId == null) {
+            return false;
+        }
+        Platform platform = Platform.current();
+        String archiveType = platform.isWindows() ? "zip" : "tar.gz";
+        return hasPackage(packagesQuery(version, distributionId, platform, archiveType));
+    }
+
+    @Override
+    public JavaDistro defaultDistro() {
+        // Re-read each call so the property can be changed at runtime, after this class is loaded
+        return JavaProvisioner.configuredDefaultDistro(FoojayJavaProvisioner.class, FALLBACK_DISTRO);
     }
 
     private JavaInstall gather(JavaVersion version, JavaDistro vendor, Path directory) {
@@ -113,9 +131,20 @@ public class FoojayJavaProvisioner implements JavaProvisioner {
         }
     }
 
+    /**
+     * Returns whether the Foojay {@code packages} query yields at least one result. An empty or
+     * absent result means no such package exists (not an error).
+     * Network and malformed-response failures still surface as {@link IOException}.
+     */
+    private static boolean hasPackage(String url) throws IOException {
+        JsonObject root = parseObject(httpGet(url));
+        JsonElement resultElement = root.get("result");
+        return resultElement != null && resultElement.isJsonArray() && !resultElement.getAsJsonArray().isEmpty();
+    }
+
     private JavaInstall download(JavaVersion version, JavaDistro vendor, Path directory) throws IOException {
         Platform platform = Platform.current();
-        JavaDistro distro = vendor == JavaDistro.UNKNOWN ? DEFAULT_DISTRO : vendor;
+        JavaDistro distro = vendor == JavaDistro.UNKNOWN ? defaultDistro() : vendor;
         String distributionId = distro.foojayId();
         if (distributionId == null) {
             throw new IOException("Vendor " + distro + " has no Foojay distribution id and cannot be provisioned.");
