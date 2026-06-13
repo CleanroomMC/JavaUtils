@@ -1,5 +1,7 @@
 package com.cleanroommc.javautils.api;
 
+import org.jspecify.annotations.Nullable;
+
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -40,10 +42,10 @@ public final class JavaDistro implements Comparable<JavaDistro> {
     public static final JavaDistro UNKNOWN = register("Unknown Vendor", null, "unknown");
 
     private final String name;
-    private final String foojayId;
+    private final @Nullable String foojayId;
     private final Predicate<String> predicate;
 
-    private JavaDistro(String name, String foojayId, Predicate<String> predicate) {
+    private JavaDistro(String name, @Nullable String foojayId, Predicate<String> predicate) {
         this.name = name;
         this.foojayId = foojayId;
         this.predicate = predicate;
@@ -63,7 +65,7 @@ public final class JavaDistro implements Comparable<JavaDistro> {
      * @param regex     case-insensitive regex matched against vendor strings
      * @see <a href="https://api.foojay.io/swagger-ui">Foojay Disco API</a>
      */
-    public static JavaDistro register(String name, String foojayId, String regex) {
+    public static JavaDistro register(String name, @Nullable String foojayId, String regex) {
         Pattern pattern = Pattern.compile(regex, Pattern.CASE_INSENSITIVE);
         return new JavaDistro(name, foojayId, s -> pattern.matcher(s).find());
     }
@@ -76,7 +78,7 @@ public final class JavaDistro implements Comparable<JavaDistro> {
      * @param predicate returns {@code true} when the input vendor string belongs to this distro
      * @see <a href="https://api.foojay.io/swagger-ui">Foojay Disco API</a>
      */
-    public static JavaDistro register(String name, String foojayId, Predicate<String> predicate) {
+    public static JavaDistro register(String name, @Nullable String foojayId, Predicate<String> predicate) {
         return new JavaDistro(name, foojayId, predicate);
     }
 
@@ -97,7 +99,7 @@ public final class JavaDistro implements Comparable<JavaDistro> {
      *               vendor-like string to match against known distributions
      * @return the first matching {@link JavaDistro}, or {@link #UNKNOWN} if none matched
      */
-    public static JavaDistro match(String string) {
+    public static JavaDistro match(@Nullable String string) {
         if (string == null || string.isEmpty()) {
             return UNKNOWN;
         }
@@ -130,7 +132,7 @@ public final class JavaDistro implements Comparable<JavaDistro> {
      * @param jdkHome   root directory of the JDK installation
      * @return the best matching {@link JavaDistro}, or {@link #UNKNOWN} if unrecognized
      */
-    public static JavaDistro match(String rawVendor, Path jdkHome) {
+    public static JavaDistro match(@Nullable String rawVendor, Path jdkHome) {
         JavaDistro matched = match(rawVendor);
         if (matched == TEMURIN) {
             // Mandrel tells itself that it is Adoptium (Temurin)
@@ -155,7 +157,7 @@ public final class JavaDistro implements Comparable<JavaDistro> {
      *
      * @see <a href="https://api.foojay.io/swagger-ui">Foojay Disco API</a>
      */
-    public String foojayId() {
+    public @Nullable String foojayId() {
         return foojayId;
     }
 

@@ -50,6 +50,8 @@ configurations {
 dependencies {
     api 'org.slf4j:slf4j-api:2.0.17'
     api 'com.cleanroommc:platform-utils:2.0.0'
+    api 'org.jspecify:jspecify:1.0.0'
+    apiImplementation 'org.jspecify:jspecify:1.0.0'
 
     shade 'com.google.code.gson:gson:2.10.1'
     shade 'org.apache.commons:commons-compress:1.26.0'
@@ -200,6 +202,7 @@ tasks.register('minimalSourceJar', Jar).configure {
 def libDeps = [
         slf4jApi: ['org.slf4j', 'slf4j-api', '2.0.17', 'compile'],
         platform: ['com.cleanroommc', 'platform-utils', '2.0.0', 'compile'],
+        jspecify: ['org.jspecify', 'jspecify', '1.0.0', 'compile'],
         gson: ['com.google.code.gson', 'gson', '2.10.1', 'runtime'],
         compress: ['org.apache.commons', 'commons-compress', '1.26.0', 'runtime'],
         slf4jSimple: ['org.slf4j', 'slf4j-simple', '2.0.17', 'runtime']
@@ -234,6 +237,7 @@ publishing {
             artifactId 'java-utils-api'
             artifact(tasks.apiJar) { classifier = null }
             artifact(tasks.apiSourceJar) { classifier = 'sources' }
+            pom.withXml(pomDependencies([libDeps.jspecify]))
         }
         mavenChecker(MavenPublication) {
             artifactId 'java-utils-checker'
@@ -243,19 +247,19 @@ publishing {
             artifactId 'java-utils-nolocator'
             artifact(tasks.nolocatorJar) { classifier = null }
             artifact(tasks.nolocatorSourceJar) { classifier = 'sources' }
-            pom.withXml(pomDependencies([libDeps.slf4jApi, libDeps.platform, libDeps.gson, libDeps.compress, libDeps.slf4jSimple]))
+            pom.withXml(pomDependencies([libDeps.slf4jApi, libDeps.platform, libDeps.jspecify, libDeps.gson, libDeps.compress, libDeps.slf4jSimple]))
         }
         mavenNoprovisioner(MavenPublication) {
             artifactId 'java-utils-noprovisioner'
             artifact(tasks.noprovisionerJar) { classifier = null }
             artifact(tasks.noprovisionerSourceJar) { classifier = 'sources' }
-            pom.withXml(pomDependencies([libDeps.slf4jApi, libDeps.platform, libDeps.slf4jSimple]))
+            pom.withXml(pomDependencies([libDeps.slf4jApi, libDeps.platform, libDeps.jspecify, libDeps.slf4jSimple]))
         }
         mavenMinimal(MavenPublication) {
             artifactId 'java-utils-minimal'
             artifact(tasks.minimalJar) { classifier = null }
             artifact(tasks.minimalSourceJar) { classifier = 'sources' }
-            pom.withXml(pomDependencies([libDeps.platform]))
+            pom.withXml(pomDependencies([libDeps.platform, libDeps.jspecify]))
         }
     }
 }

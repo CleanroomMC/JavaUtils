@@ -4,12 +4,14 @@
  */
 package com.cleanroommc.javautils.api;
 
+import org.jspecify.annotations.Nullable;
+
 import java.util.ArrayList;
 import java.util.List;
 
 public class JavaVersion implements Comparable<JavaVersion> {
 
-    public static JavaVersion parse(String s) {
+    public static @Nullable JavaVersion parse(String s) {
         try {
             return parseOrThrow(s);
         } catch (IllegalArgumentException e) {
@@ -17,7 +19,7 @@ public class JavaVersion implements Comparable<JavaVersion> {
         }
     }
 
-    public static JavaVersion parse(int major) {
+    public static @Nullable JavaVersion parse(int major) {
         try {
             return parseOrThrow(major);
         } catch (IllegalArgumentException e) {
@@ -145,11 +147,12 @@ public class JavaVersion implements Comparable<JavaVersion> {
 
     }
 
-    private final String str, pre, opt;
+    private final String str;
+    private final @Nullable String pre, opt;
     private final int[] vnum;
     private final int preI, build;
 
-    private JavaVersion(String str, int[] vnum, String pre, int build, String opt) {
+    private JavaVersion(String str, int[] vnum, @Nullable String pre, int build, @Nullable String opt) {
         this.str = str;
         this.vnum = vnum;
         this.pre = pre;
@@ -179,7 +182,7 @@ public class JavaVersion implements Comparable<JavaVersion> {
         return this.vnum[3];
     }
 
-    public String pre() {
+    public @Nullable String pre() {
         return pre;
     }
 
@@ -187,11 +190,11 @@ public class JavaVersion implements Comparable<JavaVersion> {
         return build;
     }
 
-    public String opt() {
+    public @Nullable String opt() {
         return opt;
     }
 
-    private static int toInt(String s) {
+    private static int toInt(@Nullable String s) {
         if (s == null) {
             return 0;
         }

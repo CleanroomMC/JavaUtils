@@ -13,6 +13,7 @@ import com.google.gson.JsonParser;
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
 import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -92,7 +93,7 @@ public class FoojayJavaProvisioner implements JavaProvisioner {
         return JavaProvisioner.configuredDefaultDistro(FoojayJavaProvisioner.class, FALLBACK_DISTRO);
     }
 
-    private JavaInstall gather(JavaVersion version, JavaDistro vendor, Path directory) {
+    private @Nullable JavaInstall gather(JavaVersion version, JavaDistro vendor, Path directory) {
         int featureVersion = version.major();
         Set<JavaInstall> candidates = new LinkedHashSet<>();
         scan(directory, MAX_SCAN_DEPTH, candidates);
@@ -500,7 +501,7 @@ public class FoojayJavaProvisioner implements JavaProvisioner {
         return dot > 0 ? filename.substring(0, dot) : filename;
     }
 
-    private static Path findJavaHome(Path root) throws IOException {
+    private static @Nullable Path findJavaHome(Path root) throws IOException {
         Set<Path> homes = new HashSet<>();
         Files.walkFileTree(root, new SimpleFileVisitor<Path>() {
             @Override
