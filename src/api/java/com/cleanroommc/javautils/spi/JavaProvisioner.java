@@ -58,7 +58,7 @@ public interface JavaProvisioner {
      * <pre>{@code -Dcom.cleanroommc.javautils.provisioners.FoojayJavaProvisioner.defaultDistro=zulu}</pre>
      * <p>
      * The value is matched against known distributions via {@link JavaDistro#match(String)} (vendor
-     * name or alias); an empty, missing, or unrecognized value yields {@code fallback}.
+     * name or alias). An empty, missing, or unrecognized value yields {@code fallback}.
      *
      * @param type     the provisioner class whose property to read
      * @param fallback the distro to use when the property is unset or unrecognized, returned as-is

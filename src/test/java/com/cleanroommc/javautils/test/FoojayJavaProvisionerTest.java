@@ -5,6 +5,7 @@ import com.cleanroommc.javautils.api.JavaDistro;
 import com.cleanroommc.javautils.api.JavaInstall;
 import com.cleanroommc.javautils.api.JavaVersion;
 import com.cleanroommc.javautils.provisioners.FoojayJavaProvisioner;
+import com.cleanroommc.javautils.spi.JavaProvisioner;
 import com.cleanroommc.platformutils.Platform;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
@@ -120,6 +121,79 @@ public class FoojayJavaProvisionerTest {
         assertThrows(IOException.class, () -> requireObject("{}", "links"));
         // Wrong type (string where an object is expected).
         assertThrows(IOException.class, () -> requireObject("{\"links\":\"nope\"}", "links"));
+    }
+
+    @Test
+    public void configuredDefaultDistroReadsSystemProperty() {
+        String key = FoojayJavaProvisioner.class.getName() + ".defaultDistro";
+        String previous = System.getProperty(key);
+        try {
+            System.clearProperty(key);
+            assertEquals(JavaDistro.TEMURIN,
+                    JavaProvisioner.configuredDefaultDistro(FoojayJavaProvisioner.class, JavaDistro.TEMURIN));
+            // A recognized vendor alias overrides the fallback
+            System.setProperty(key, "zulu");
+            assertEquals(JavaDistro.ZULU,
+                    JavaProvisioner.configuredDefaultDistro(FoojayJavaProvisioner.class, JavaDistro.TEMURIN));
+            // An unrecognized value yields the fallback
+            System.setProperty(key, "not-a-distro");
+            assertEquals(JavaDistro.TEMURIN,
+                    JavaProvisioner.configuredDefaultDistro(FoojayJavaProvisioner.class, JavaDistro.TEMURIN));
+        } finally {
+            if (previous == null) {
+                System.clearProperty(key);
+            } else {
+                System.setProperty(key, previous);
+            }
+        }
+    }
+
+    @Test
+    public void defaultDistroReflectsRuntimePropertyChange() {
+        String key = FoojayJavaProvisioner.class.getName() + ".defaultDistro";
+        String previous = System.getProperty(key);
+        FoojayJavaProvisioner provisioner = new FoojayJavaProvisioner();
+        try {
+            System.clearProperty(key);
+            assertEquals(JavaDistro.TEMURIN, provisioner.defaultDistro());
+            // Changed after the provisioner (and its class) already exist - must still take effect.
+            System.setProperty(key, "corretto");
+            assertEquals(JavaDistro.CORRETTO, provisioner.defaultDistro());
+        } finally {
+            if (previous == null) {
+                System.clearProperty(key);
+            } else {
+                System.setProperty(key, previous);
+            }
+        }
+    }
+
+    @Test
+    @Tag("network")
+    public void allowedFalseForNonProvisionableVendor() throws IOException {
+        assertFalse(new FoojayJavaProvisioner().exists(JavaVersion.parseOrThrow(25), JavaDistro.APPLE));
+    }
+
+    @Test
+    @Tag("network")
+    public void allowedTrueWhenDistroPublishesVersion() {
+        assertTrue(allowedOrSkip(JavaVersion.parseOrThrow(25), JavaDistro.TEMURIN));
+    }
+
+    @Test
+    @Tag("network")
+    public void allowedFalseWhenDistroLacksVersion() {
+        // Tencent Kona has no Java 25 build.
+        assertFalse(allowedOrSkip(JavaVersion.parseOrThrow(25), JavaDistro.TENCENT));
+    }
+
+    private boolean allowedOrSkip(JavaVersion version, JavaDistro vendor) {
+        try {
+            return new FoojayJavaProvisioner().exists(version, vendor);
+        } catch (IOException e) {
+            abort("Foojay API unreachable: " + e.getMessage());
+            return false; // unreachable
+        }
     }
 
     @Test
