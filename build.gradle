@@ -125,9 +125,7 @@ tasks.register('nolocatorJar', Jar).configure {
     from (sourceSets.main.output.classesDirs) {
         exclude 'com/cleanroommc/javautils/locators/**'
     }
-    from (sourceSets.api.output.classesDirs) {
-        exclude 'com/cleanroommc/javautils/spi/**'
-    }
+    from sourceSets.api.output.classesDirs
     from sourceSets.checker.output.classesDirs
 }
 
@@ -138,9 +136,7 @@ tasks.register('nolocatorSourceJar', Jar).configure {
     from (sourceSets.main.allSource) {
         exclude 'com/cleanroommc/javautils/locators/**'
     }
-    from (sourceSets.api.allSource) {
-        exclude 'com/cleanroommc/javautils/spi/**'
-    }
+    from sourceSets.api.allSource
     from sourceSets.checker.allSource
 }
 
@@ -151,9 +147,7 @@ tasks.register('noprovisionerJar', Jar).configure {
     from (sourceSets.main.output.classesDirs) {
         exclude 'com/cleanroommc/javautils/provisioners/**'
     }
-    from (sourceSets.api.output.classesDirs) {
-        exclude 'com/cleanroommc/javautils/spi/**'
-    }
+    from sourceSets.api.output.classesDirs
     from sourceSets.checker.output.classesDirs
 }
 
@@ -164,37 +158,7 @@ tasks.register('noprovisionerSourceJar', Jar).configure {
     from (sourceSets.main.allSource) {
         exclude 'com/cleanroommc/javautils/provisioners/**'
     }
-    from (sourceSets.api.allSource) {
-        exclude 'com/cleanroommc/javautils/spi/**'
-    }
-    from sourceSets.checker.allSource
-}
-
-tasks.register('minimalJar', Jar).configure {
-    group 'build'
-    archiveClassifier = 'minimal'
-
-    from (sourceSets.main.output.classesDirs) {
-        exclude 'com/cleanroommc/javautils/locators/**'
-        exclude 'com/cleanroommc/javautils/provisioners/**'
-    }
-    from (sourceSets.api.output.classesDirs) {
-        exclude 'com/cleanroommc/javautils/spi/**'
-    }
-    from sourceSets.checker.output.classesDirs
-}
-
-tasks.register('minimalSourceJar', Jar).configure {
-    group 'build'
-    archiveClassifier = 'minimal-source'
-
-    from (sourceSets.main.allSource) {
-        exclude 'com/cleanroommc/javautils/locators/**'
-        exclude 'com/cleanroommc/javautils/provisioners/**'
-    }
-    from (sourceSets.api.allSource) {
-        exclude 'com/cleanroommc/javautils/spi/**'
-    }
+    from sourceSets.api.allSource
     from sourceSets.checker.allSource
 }
 
@@ -233,6 +197,12 @@ publishing {
             artifactId 'java-utils'
             from components.java
         }
+        mavenAll(MavenPublication) {
+            artifactId 'java-utils-all'
+            artifact(tasks.shadowJar) { classifier = null }
+            artifact(tasks.sourcesJar) { classifier = 'sources' }
+            pom.withXml(pomDependencies([libDeps.slf4jApi, libDeps.platform, libDeps.jspecify, libDeps.slf4jSimple]))
+        }
         mavenApi(MavenPublication) {
             artifactId 'java-utils-api'
             artifact(tasks.apiJar) { classifier = null }
@@ -254,12 +224,6 @@ publishing {
             artifact(tasks.noprovisionerJar) { classifier = null }
             artifact(tasks.noprovisionerSourceJar) { classifier = 'sources' }
             pom.withXml(pomDependencies([libDeps.slf4jApi, libDeps.platform, libDeps.jspecify, libDeps.slf4jSimple]))
-        }
-        mavenMinimal(MavenPublication) {
-            artifactId 'java-utils-minimal'
-            artifact(tasks.minimalJar) { classifier = null }
-            artifact(tasks.minimalSourceJar) { classifier = 'sources' }
-            pom.withXml(pomDependencies([libDeps.platform, libDeps.jspecify]))
         }
     }
 }
