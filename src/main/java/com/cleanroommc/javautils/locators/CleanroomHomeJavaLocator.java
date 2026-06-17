@@ -15,6 +15,7 @@ public class CleanroomHomeJavaLocator extends AbstractJavaLocator{
         List<JavaInstall> javaInstalls = new ArrayList<>();
         Path cleanroomJavaDir = userHomePath(".cleanroom/java");
         if (Files.isDirectory(cleanroomJavaDir)) {
+            reportScan(cleanroomJavaDir);
             try (Stream<Path> entries = Files.list(cleanroomJavaDir)) {
                 entries
                         .filter(Files::isDirectory)

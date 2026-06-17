@@ -24,6 +24,7 @@ public class ASDFProvisionedJavaLocator extends AbstractJavaLocator {
         if (!Files.isDirectory(asdfJavaInstallsDir)) {
             return Collections.emptyList();
         }
+        reportScan(asdfJavaInstallsDir);
         try (Stream<Path> stream = Files.list(asdfJavaInstallsDir)) {
             return stream.map(AbstractJavaLocator::parseOrLog).collect(Collectors.toList());
         } catch (IOException e) {

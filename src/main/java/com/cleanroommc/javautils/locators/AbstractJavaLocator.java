@@ -3,6 +3,8 @@ package com.cleanroommc.javautils.locators;
 import com.cleanroommc.javautils.JavaUtils;
 import com.cleanroommc.javautils.api.JavaInstall;
 import com.cleanroommc.javautils.spi.JavaLocator;
+import com.cleanroommc.javautils.api.ScanListener;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -81,24 +83,25 @@ public abstract class AbstractJavaLocator implements JavaLocator {
         return null;
     }
 
-    protected static void deepScanForInstalls(Path directory, List<JavaInstall> installs) {
+    protected void deepScanForInstalls(Path directory, List<JavaInstall> installs) {
         if (!Files.exists(directory)) {
             return;
         }
         walk(directory, Integer.MAX_VALUE, installs);
     }
 
-    protected static void boundedScanForInstalls(Path directory, int maxDepth, List<JavaInstall> installs) {
+    protected void boundedScanForInstalls(Path directory, int maxDepth, List<JavaInstall> installs) {
         if (!Files.exists(directory)) {
             return;
         }
         walk(directory, maxDepth, installs);
     }
 
-    private static void walk(Path directory, int remainingDepth, List<JavaInstall> installs) {
+    private void walk(Path directory, int remainingDepth, List<JavaInstall> installs) {
         if (remainingDepth <= 0) {
             return;
         }
+        this.reportScan(directory);
         try (Stream<Path> stream = Files.list(directory)) {
             stream.filter(Files::isDirectory).forEach(sub -> {
                 Path location = sub.resolve("bin").resolve(JavaUtils.JAVA_EXECUTABLE);
@@ -114,6 +117,25 @@ public abstract class AbstractJavaLocator implements JavaLocator {
 
     private boolean initialized;
     private Set<JavaInstall> javaInstalls;
+    private volatile ScanListener scanListener = ScanListener.NONE;
+
+    @Override
+    public JavaLocator onScan(@Nullable ScanListener listener) {
+        this.scanListener = listener == null ? ScanListener.NONE : listener;
+        return this;
+    }
+
+    /**
+     * Notifies the registered {@link ScanListener} that the given directory is being scanned.
+     * Subclasses call this from their {@link #initialize()} for each directory they examine; the
+     * shared {@link #deepScanForInstalls(Path, List)} and {@link #boundedScanForInstalls(Path, int, List)}
+     * helpers already report every directory they descend into.
+     *
+     * @param directory the directory currently being scanned
+     */
+    protected void reportScan(Path directory) {
+        this.scanListener.onScan(directory);
+    }
 
     protected abstract List<JavaInstall> initialize();
 

@@ -29,6 +29,7 @@ public class HomebrewProvisionedJavaLocator extends AbstractJavaLocator {
 
         Path cellar = Paths.get("/opt/homebrew/Cellar/openjdk");
         if (Files.exists(cellar)) {
+            reportScan(cellar);
             try (Stream<Path> entries = Files.list(cellar)) {
                 entries.forEach(entry -> parseOrLog(javaInstalls, entry));
             } catch (IOException e) {
@@ -38,6 +39,7 @@ public class HomebrewProvisionedJavaLocator extends AbstractJavaLocator {
 
         Path homebrew = Paths.get("/opt/homebrew/Cellar");
         if (Files.isDirectory(homebrew)) {
+            reportScan(homebrew);
             try (DirectoryStream<Path> stream = Files.newDirectoryStream(homebrew, "openjdk@*")) {
                 for (Path path : stream) {
                     parseOrLog(javaInstalls, path);

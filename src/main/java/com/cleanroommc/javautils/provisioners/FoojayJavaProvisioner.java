@@ -4,6 +4,7 @@ import com.cleanroommc.javautils.JavaUtils;
 import com.cleanroommc.javautils.api.JavaDistro;
 import com.cleanroommc.javautils.api.JavaInstall;
 import com.cleanroommc.javautils.api.JavaVersion;
+import com.cleanroommc.javautils.api.DownloadListener;
 import com.cleanroommc.javautils.spi.JavaProvisioner;
 import com.cleanroommc.platformutils.Platform;
 import com.google.gson.JsonElement;
@@ -21,6 +22,7 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
@@ -64,6 +66,14 @@ public class FoojayJavaProvisioner implements JavaProvisioner {
      * Depth of the recursive scan of the target directory when gathering previously provisioned installations.
      */
     private static final int MAX_SCAN_DEPTH = 4;
+
+    private volatile DownloadListener downloadListener = DownloadListener.NONE;
+
+    @Override
+    public JavaProvisioner onDownload(@Nullable DownloadListener listener) {
+        this.downloadListener = listener == null ? DownloadListener.NONE : listener;
+        return this;
+    }
 
     @Override
     public JavaInstall resolve(JavaVersion version, JavaDistro vendor, Path directory) throws IOException {
@@ -160,7 +170,7 @@ public class FoojayJavaProvisioner implements JavaProvisioner {
         Files.createDirectories(directory);
         Path archive = directory.resolve(filename);
         try {
-            httpDownload(downloadUrl, archive);
+            httpDownload(downloadUrl, archive, filename, this.downloadListener);
             Path destination = directory.resolve(stripExtension(filename));
             if (Files.exists(destination)) {
                 deleteRecursively(destination);
@@ -284,15 +294,25 @@ public class FoojayJavaProvisioner implements JavaProvisioner {
         }
     }
 
-    private static void httpDownload(String url, Path target) throws IOException {
+    private static void httpDownload(String url, Path target, String filename, DownloadListener listener) throws IOException {
         HttpURLConnection connection = open(url, "*/*");
         try {
             int code = connection.getResponseCode();
             if (code != HttpURLConnection.HTTP_OK) {
                 throw new IOException("Download failed (" + code + "): " + url);
             }
-            try (InputStream in = connection.getInputStream()) {
-                Files.copy(in, target, StandardCopyOption.REPLACE_EXISTING);
+            long total = connection.getContentLengthLong();
+            listener.onProgress(0L, total, filename);
+            try (InputStream in = connection.getInputStream();
+                 OutputStream out = Files.newOutputStream(target)) {
+                byte[] buffer = new byte[8192];
+                long downloaded = 0L;
+                int read;
+                while ((read = in.read(buffer)) != -1) {
+                    out.write(buffer, 0, read);
+                    downloaded += read;
+                    listener.onProgress(downloaded, total, filename);
+                }
             }
         } finally {
             connection.disconnect();

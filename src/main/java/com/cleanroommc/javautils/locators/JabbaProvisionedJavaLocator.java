@@ -27,6 +27,7 @@ public class JabbaProvisionedJavaLocator extends AbstractJavaLocator {
         if (!Files.isDirectory(jabbaJavaInstallsDir)) {
             return Collections.emptyList();
         }
+        reportScan(jabbaJavaInstallsDir);
         try (Stream<Path> stream = Files.list(jabbaJavaInstallsDir)) {
             return stream.map(AbstractJavaLocator::parseOrLog).collect(Collectors.toList());
         } catch (IOException e) {

@@ -57,6 +57,7 @@ public class DefaultInstalledJavaLocator extends AbstractJavaLocator {
             if (!Files.exists(directory)) {
                 continue;
             }
+            reportScan(directory);
             Path home = directory.resolve("Contents/Home/bin/java");
             if (Files.exists(home)) {
                 parseOrLog(installs, home);

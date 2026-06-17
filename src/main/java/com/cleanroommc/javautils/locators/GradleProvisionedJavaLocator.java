@@ -29,6 +29,7 @@ public class GradleProvisionedJavaLocator extends AbstractJavaLocator {
             return Collections.emptyList();
         }
         List<JavaInstall> installs = new ArrayList<>();
+        reportScan(jdksDir);
         try (Stream<Path> stream = Files.list(jdksDir)) {
             stream.filter(Files::isDirectory).forEach(jdkDir -> {
                 try {

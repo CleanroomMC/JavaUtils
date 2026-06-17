@@ -20,6 +20,7 @@ public class IntelliJProvisionedJavaLocator extends AbstractJavaLocator {
         if (!Files.isDirectory(jdksDir)) {
             return Collections.emptyList();
         }
+        reportScan(jdksDir);
         try (Stream<Path> stream = Files.list(jdksDir)) {
             return stream.map(AbstractJavaLocator::parseOrLog).collect(Collectors.toList());
         } catch (IOException e) {

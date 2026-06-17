@@ -16,6 +16,7 @@ public class SDKManProvisionedJavaLocator extends AbstractJavaLocator {
         List<JavaInstall> javaInstalls = new ArrayList<>();
         Path sdkManDir = userHomePath(".sdkman/candidates/java");
         if (Files.isDirectory(sdkManDir)) {
+            reportScan(sdkManDir);
             try (Stream<Path> entries = Files.list(sdkManDir)) {
                 entries.forEach(entry -> parseOrLog(javaInstalls, entry));
             } catch (IOException e) {

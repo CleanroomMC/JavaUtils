@@ -4,6 +4,7 @@ import com.cleanroommc.javautils.api.JavaInstall;
 import com.cleanroommc.platformutils.Platform;
 import com.cleanroommc.platformutils.windows.*;
 
+import java.nio.file.Paths;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -28,6 +29,7 @@ public class WindowsRegistryJavaLocator extends AbstractJavaLocator {
                 .map(QueryResult::entries)
                 .flatMap(Collection::stream)
                 .map(QueryResult.Entry::value)
+                .peek(home -> reportScan(Paths.get(home)))
                 .map(AbstractJavaLocator::parseOrLog)
                 .collect(Collectors.toList());
     }
