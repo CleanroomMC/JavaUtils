@@ -1,6 +1,8 @@
 package com.cleanroommc.javautils.spi;
 
 import com.cleanroommc.javautils.api.JavaInstall;
+import com.cleanroommc.javautils.api.ScanListener;
+import org.jspecify.annotations.Nullable;
 
 import java.util.*;
 import java.util.function.Predicate;
@@ -50,6 +52,22 @@ public interface JavaLocator {
      * @return all discovered installations or empty if none were found
      */
     Set<JavaInstall> all();
+
+    /**
+     * Registers a listener that is notified of every directory this locator examines while scanning
+     * for installations. Only one listener is active at a time, registering a new one replaces the
+     * previous. Passing {@code null} clears it.
+     * <p>
+     * Each locator scans lazily on its first {@link #all()} or {@link #get(Predicate)} call and
+     * caches the result, so a listener must be registered before that first call to observe the
+     * scan. The default implementation ignores the listener.
+     *
+     * @param listener the listener to notify, or {@code null} to disable scan reporting
+     * @return this locator, for chaining
+     */
+    default JavaLocator onScan(@Nullable ScanListener listener) {
+        return this;
+    }
 
     /**
      * Returns the installations whose major (feature) version equals the given value.

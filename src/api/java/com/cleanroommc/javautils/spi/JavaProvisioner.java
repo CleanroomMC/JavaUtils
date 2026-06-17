@@ -1,8 +1,10 @@
 package com.cleanroommc.javautils.spi;
 
+import com.cleanroommc.javautils.api.DownloadListener;
 import com.cleanroommc.javautils.api.JavaInstall;
 import com.cleanroommc.javautils.api.JavaDistro;
 import com.cleanroommc.javautils.api.JavaVersion;
+import org.jspecify.annotations.Nullable;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -110,6 +112,21 @@ public interface JavaProvisioner {
      * @return the provider's default {@link JavaDistro}, never {@code null}
      */
     JavaDistro defaultDistro();
+
+    /**
+     * Registers a listener that receives progress while this provisioner downloads a distribution.
+     * Only one listener is active at a time, registering a new one replaces the previous.
+     * Passing {@code null} clears it.
+     * <p>
+     * The listener is consulted only on the download path, gathering an existing local installation
+     * reports nothing. Implementations that download should override it.
+     *
+     * @param listener the listener to notify, or {@code null} to disable progress reporting
+     * @return this provisioner, for chaining
+     */
+    default JavaProvisioner onDownload(@Nullable DownloadListener listener) {
+        return this;
+    }
 
     /**
      * Provisions a Java installation of the given version from any vendor.
