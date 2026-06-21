@@ -239,7 +239,8 @@ public class FoojayJavaProvisioner implements JavaProvisioner {
 
     private static JsonObject parseObject(String json) throws IOException {
         try {
-            JsonElement element = JsonParser.parseString(json);
+            // Use deprecated variant for older Gsons
+            JsonElement element = new JsonParser().parse(json);
             if (!element.isJsonObject()) {
                 throw new IOException("Foojay response was not a JSON object");
             }
