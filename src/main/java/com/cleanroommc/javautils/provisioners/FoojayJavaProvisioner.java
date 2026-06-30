@@ -150,7 +150,7 @@ public class FoojayJavaProvisioner implements JavaProvisioner {
     private static boolean hasPackage(String url) throws IOException {
         JsonObject root = parseObject(httpGet(url));
         JsonElement resultElement = root.get("result");
-        return resultElement != null && resultElement.isJsonArray() && !resultElement.getAsJsonArray().isEmpty();
+        return resultElement != null && resultElement.isJsonArray() && resultElement.getAsJsonArray().size() > 0;
     }
 
     private JavaInstall download(JavaVersion version, JavaDistro vendor, Path directory) throws IOException {
@@ -227,7 +227,7 @@ public class FoojayJavaProvisioner implements JavaProvisioner {
     private static JsonObject selectPackage(String json, JavaVersion version, JavaDistro distro) throws IOException {
         JsonObject root = parseObject(json);
         JsonElement resultElement = root.get("result");
-        if (resultElement == null || !resultElement.isJsonArray() || resultElement.getAsJsonArray().isEmpty()) {
+        if (resultElement == null || !resultElement.isJsonArray() || resultElement.getAsJsonArray().size() == 0) {
             throw new IOException("No Foojay package found for Java " + version + " (" + distro + ") on this platform");
         }
         JsonElement first = resultElement.getAsJsonArray().get(0);
