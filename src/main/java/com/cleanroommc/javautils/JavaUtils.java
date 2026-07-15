@@ -62,44 +62,26 @@ public final class JavaUtils {
     }
 
     public static JavaInstall parseInstall(Path location) throws IOException {
-        List<String> arguments = new ArrayList<>();
-        ProcessBuilder processBuilder = new ProcessBuilder(arguments); // ProcessBuilder doesn't copy
-
-        File workingJar = jarLocationOf(JavaChecker.class);
-        File workingDir = workingJar.getParentFile();
-        processBuilder.directory(workingDir);
-
         Path[] locations = determine(location);
         Path root = locations[0];
         Path executable = locations[1];
 
-        arguments.add(executable.toAbsolutePath().toString());
-        arguments.add("-cp");
-        arguments.add(workingJar.getName());
-        arguments.add(JavaChecker.class.getName());
-
-        List<String> output = new ArrayList<>();
-
+        String[] result;
+        // Primary: checker jar
         try {
-            Process process = processBuilder.start();
-            BufferedReader inReader = new BufferedReader(new InputStreamReader(process.getInputStream()));
-
-            String inLine;
-            while ((inLine = inReader.readLine()) != null) {
-                output.add(inLine);
+            result = runChecker(executable);
+            if (result != null) {
+                return JavaInstallImpl.of(root, executable, result[0], result[1]);
             }
+        } catch (IOException ignored) { }
 
-            process.waitFor();
-        } catch (IOException | InterruptedException e) {
-            throw new IOException("Unable to parse " + location + " as an install", e);
+        // Fallback: parse -XshowSettings output
+        result = runShowSettings(executable);
+        if (result != null) {
+            return JavaInstallImpl.of(root, executable, result[0], result[1]);
         }
 
-        if (output.size() < 2) {
-            throw new IOException("Unable to parse " + location + " as an install");
-        }
-
-        // 0: java.version, 1: java.vendor
-        return JavaInstallImpl.of(root, executable, output.get(0), output.get(1));
+        throw new IOException("Unable to parse " + location + " as an install");
     }
 
     public static JavaInstall parseInstall(File location) throws IOException {
@@ -130,6 +112,83 @@ public final class JavaUtils {
             throw new IOException("Invalid location for a Java install. Searched in: " + path);
         }
         throw new IOException(path + " does not exist in filesystem.");
+    }
+
+    private static String[] runChecker(Path executable) throws IOException {
+        File workingJar = jarLocationOf(JavaChecker.class);
+        File workingDir = workingJar.getParentFile();
+
+        List<String> arguments = new ArrayList<>();
+        ProcessBuilder processBuilder = new ProcessBuilder(arguments);
+        processBuilder.directory(workingDir);
+        processBuilder.redirectErrorStream(true);
+
+        arguments.add(executable.toAbsolutePath().toString());
+        arguments.add("-cp");
+        arguments.add(workingJar.getName());
+        arguments.add(JavaChecker.class.getName());
+
+        List<String> output = new ArrayList<>();
+
+        try {
+            Process process = processBuilder.start();
+            BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+
+            String line;
+            while ((line = reader.readLine()) != null) {
+                output.add(line);
+            }
+
+            process.waitFor();
+        } catch (IOException | InterruptedException e) {
+            throw new IOException("JavaChecker failed for " + executable, e);
+        }
+
+        if (output.size() >= 2) {
+            return new String[] { output.get(0), output.get(1) };
+        }
+        return null;
+    }
+
+    private static String[] runShowSettings(Path executable) {
+        List<String> arguments = new ArrayList<>();
+        arguments.add(executable.toAbsolutePath().toString());
+        arguments.add("-XshowSettings");
+        arguments.add("-version");
+
+        ProcessBuilder processBuilder = new ProcessBuilder(arguments);
+        processBuilder.redirectErrorStream(true);
+
+        List<String> output = new ArrayList<>();
+
+        try {
+            Process process = processBuilder.start();
+            BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+
+            String line;
+            while ((line = reader.readLine()) != null) {
+                output.add(line);
+            }
+
+            process.waitFor();
+        } catch (IOException | InterruptedException e) {
+            return null;
+        }
+
+        String version = null;
+        String vendor = null;
+        for (String line : output) {
+            String trimmed = line.trim();
+            if (version == null && trimmed.startsWith("java.version = ")) {
+                version = trimmed.substring("java.version = ".length());
+            } else if (vendor == null && trimmed.startsWith("java.vendor = ")) {
+                vendor = trimmed.substring("java.vendor = ".length());
+            }
+            if (version != null && vendor != null) {
+                return new String[] { version, vendor };
+            }
+        }
+        return null;
     }
 
     private JavaUtils() { }
