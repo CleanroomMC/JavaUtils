@@ -18,6 +18,14 @@ public final class JavaUtils {
 
     public static final String JAVA_EXECUTABLE = Platform.current().isWindows() ? "java.exe" : "java";
 
+    /**
+     * The JVM echoes options injected through these environment variables to stderr.
+     * e.g. {@code Picked up _JAVA_OPTIONS: -Xmx2G}, which can be mistaken for the output of the process.
+     */
+    private static final String[] OPTION_ENV_VARS = {
+            "_JAVA_OPTIONS", "JAVA_TOOL_OPTIONS", "_JAVA_TOOL_OPTIONS", "JDK_JAVA_OPTIONS"
+    };
+
     public static File currentJarLocation() throws IOException {
         return jarLocationOf(JavaUtils.class);
     }
@@ -119,9 +127,8 @@ public final class JavaUtils {
         File workingDir = workingJar.getParentFile();
 
         List<String> arguments = new ArrayList<>();
-        ProcessBuilder processBuilder = new ProcessBuilder(arguments);
+        ProcessBuilder processBuilder = newProcessBuilder(arguments);
         processBuilder.directory(workingDir);
-        processBuilder.redirectErrorStream(true);
 
         arguments.add(executable.toAbsolutePath().toString());
         arguments.add("-cp");
@@ -136,6 +143,9 @@ public final class JavaUtils {
 
             String line;
             while ((line = reader.readLine()) != null) {
+                if (hasNoise(line)) {
+                    continue;
+                }
                 output.add(line);
             }
 
@@ -156,8 +166,7 @@ public final class JavaUtils {
         arguments.add("-XshowSettings");
         arguments.add("-version");
 
-        ProcessBuilder processBuilder = new ProcessBuilder(arguments);
-        processBuilder.redirectErrorStream(true);
+        ProcessBuilder processBuilder = newProcessBuilder(arguments);
 
         List<String> output = new ArrayList<>();
 
@@ -167,6 +176,9 @@ public final class JavaUtils {
 
             String line;
             while ((line = reader.readLine()) != null) {
+                if (hasNoise(line)) {
+                    continue;
+                }
                 output.add(line);
             }
 
@@ -189,6 +201,19 @@ public final class JavaUtils {
             }
         }
         return null;
+    }
+
+    private static ProcessBuilder newProcessBuilder(List<String> arguments) {
+        ProcessBuilder processBuilder = new ProcessBuilder(arguments);
+        processBuilder.redirectErrorStream(true);
+        for (String variable : OPTION_ENV_VARS) {
+            processBuilder.environment().remove(variable);
+        }
+        return processBuilder;
+    }
+
+    private static boolean hasNoise(String line) {
+        return line.startsWith("Picked up ") || line.trim().isEmpty();
     }
 
     private JavaUtils() { }
