@@ -13,6 +13,8 @@ import com.google.gson.JsonParseException;
 import com.google.gson.JsonParser;
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
+import org.apache.commons.compress.archivers.zip.ZipArchiveEntry;
+import org.apache.commons.compress.archivers.zip.ZipFile;
 import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
@@ -30,6 +32,7 @@ import java.nio.file.FileSystemException;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
@@ -37,13 +40,13 @@ import java.nio.file.attribute.PosixFilePermission;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.Enumeration;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Stream;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipInputStream;
+
 
 /**
  * Default {@link JavaProvisioner} backed by the
@@ -126,8 +129,8 @@ public class FoojayJavaProvisioner implements JavaProvisioner {
         if (remainingDepth < 0 || !Files.isDirectory(directory)) {
             return;
         }
-        Path executable = directory.resolve("bin").resolve(JavaUtils.JAVA_EXECUTABLE);
-        if (Files.isRegularFile(executable)) {
+        Path executable = javaExecutable(directory);
+        if (executable != null) {
             try {
                 out.add(JavaUtils.parseInstall(executable));
             } catch (IOException e) {
@@ -140,6 +143,19 @@ public class FoojayJavaProvisioner implements JavaProvisioner {
             stream.filter(Files::isDirectory).forEach(sub -> scan(sub, remainingDepth - 1, out));
         } catch (IOException ignored) {
         }
+    }
+
+    /**
+     * {@code bin/<java>} at {@code directory}, or the macOS bundle equivalent
+     * {@code Contents/Home/bin/<java>}.
+     */
+    private static @Nullable Path javaExecutable(Path directory) {
+        Path executable = directory.resolve("bin").resolve(JavaUtils.JAVA_EXECUTABLE);
+        if (Files.isRegularFile(executable)) {
+            return executable;
+        }
+        Path bundled = directory.resolve("Contents").resolve("Home").resolve("bin").resolve(JavaUtils.JAVA_EXECUTABLE);
+        return Files.isRegularFile(bundled) ? bundled : null;
     }
 
     /**
@@ -331,9 +347,10 @@ public class FoojayJavaProvisioner implements JavaProvisioner {
     }
 
     private static void extractZip(Path archive, Path destination) throws IOException {
-        try (ZipInputStream zip = new ZipInputStream(Files.newInputStream(archive))) {
-            ZipEntry entry;
-            while ((entry = zip.getNextEntry()) != null) {
+        try (ZipFile zip = new ZipFile(archive)) {
+            Enumeration<ZipArchiveEntry> entries = zip.getEntries();
+            while (entries.hasMoreElements()) {
+                ZipArchiveEntry entry = entries.nextElement();
                 Path resolved = resolveEntry(destination, entry.getName());
                 if (conflicts(destination, resolved, entry.isDirectory())) {
                     skipConflictingEntry(entry.getName());
@@ -342,15 +359,28 @@ public class FoojayJavaProvisioner implements JavaProvisioner {
                 try {
                     if (entry.isDirectory()) {
                         Files.createDirectories(resolved);
+                    } else if (entry.isUnixSymlink()) {
+                        String target = zip.getUnixSymlink(entry);
+                        if (target == null) {
+                            skipConflictingEntry(entry.getName());
+                            continue;
+                        }
+                        Files.createDirectories(resolved.getParent());
+                        Files.deleteIfExists(resolved);
+                        writeSymbolicLink(resolved, target);
                     } else {
                         Files.createDirectories(resolved.getParent());
-                        Files.copy(zip, resolved, StandardCopyOption.REPLACE_EXISTING);
+                        try (InputStream in = zip.getInputStream(entry)) {
+                            Files.copy(in, resolved, StandardCopyOption.REPLACE_EXISTING);
+                        }
+                        applyMode(resolved, entry.getUnixMode());
                     }
                 } catch (FileSystemException e) {
                     skipConflictingEntry(entry.getName());
                 }
             }
         }
+        flattenMacOsBundle(destination);
     }
 
     private static void extractTarGz(Path archive, Path destination) throws IOException {
@@ -368,7 +398,8 @@ public class FoojayJavaProvisioner implements JavaProvisioner {
                     } else if (entry.isSymbolicLink()) {
                         Files.createDirectories(resolved.getParent());
                         Files.deleteIfExists(resolved);
-                        Files.createSymbolicLink(resolved, resolved.getParent().resolve(entry.getLinkName()).normalize());
+                        // Keep the archive's relative target
+                        writeSymbolicLink(resolved, entry.getLinkName());
                     } else {
                         Files.createDirectories(resolved.getParent());
                         Files.copy(tar, resolved, StandardCopyOption.REPLACE_EXISTING);
@@ -379,6 +410,7 @@ public class FoojayJavaProvisioner implements JavaProvisioner {
                 }
             }
         }
+        flattenMacOsBundle(destination);
     }
 
     /**
@@ -408,6 +440,14 @@ public class FoojayJavaProvisioner implements JavaProvisioner {
             throw new IOException("Archive entry escapes destination directory: " + name);
         }
         return resolved;
+    }
+
+    private static void writeSymbolicLink(Path link, String target) throws IOException {
+        try {
+            Files.createSymbolicLink(link, Paths.get(target));
+        } catch (UnsupportedOperationException ignored) {
+            Files.write(link, target.getBytes(StandardCharsets.UTF_8));
+        }
     }
 
     private static void applyMode(Path file, int mode) {
@@ -522,17 +562,67 @@ public class FoojayJavaProvisioner implements JavaProvisioner {
         return dot > 0 ? filename.substring(0, dot) : filename;
     }
 
+    /**
+     * macOS JDK archives (Temurin, Zulu, Corretto, …) are {@code .jdk} bundles.
+     * <p>{@code /Contents/Home} is the real {@code JAVA_HOME}.
+     * Relocate {@code Contents/Home} to {@code destination} so the extracted tree is the normal Java home.
+     */
+    private static void flattenMacOsBundle(Path destination) throws IOException {
+        Path home = findMacOsBundleHome(destination);
+        if (home == null || home.equals(destination)) {
+            return;
+        }
+        Path staging = destination.resolveSibling(destination.getFileName().toString() + ".macos-home");
+        if (Files.exists(staging)) {
+            deleteRecursively(staging);
+        }
+        Files.move(home, staging);
+        deleteRecursively(destination);
+        Files.move(staging, destination);
+    }
+
+    private static @Nullable Path findMacOsBundleHome(Path root) throws IOException {
+        Path home = findJavaHome(root);
+        // Skip when a shallower non-bundle bin/<java> already exists
+        return isContentsHome(home) ? home : null;
+    }
+
+    private static boolean isContentsHome(Path home) {
+        if (home == null) {
+            return false;
+        }
+        Path parent = home.getParent();
+        return "Home".equals(home.getFileName().toString()) && parent != null && "Contents".equals(parent.getFileName().toString());
+    }
+
     private static @Nullable Path findJavaHome(Path root) throws IOException {
+        Path bundled = root.resolve("Contents").resolve("Home");
+        if (Files.isRegularFile(bundled.resolve("bin").resolve(JavaUtils.JAVA_EXECUTABLE))) {
+            return bundled;
+        }
         Set<Path> homes = new HashSet<>();
         Files.walkFileTree(root, new SimpleFileVisitor<Path>() {
+
+            @Override
+            public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) {
+                Path nested = dir.resolve("Contents").resolve("Home");
+                if (Files.isRegularFile(nested.resolve("bin").resolve(JavaUtils.JAVA_EXECUTABLE))) {
+                    homes.add(nested);
+                    return FileVisitResult.SKIP_SUBTREE;
+                }
+                return FileVisitResult.CONTINUE;
+            }
+
             @Override
             public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
-                if (JavaUtils.JAVA_EXECUTABLE.equals(file.getFileName().toString()) && "bin".equals(file.getParent().getFileName().toString())) {
+                if (JavaUtils.JAVA_EXECUTABLE.equals(file.getFileName().toString()) && file.getParent() != null
+                        && "bin".equals(file.getParent().getFileName().toString())) {
                     homes.add(file.getParent().getParent());
                     return FileVisitResult.SKIP_SIBLINGS;
                 }
                 return FileVisitResult.CONTINUE;
             }
+
         });
         return homes.stream().min(Comparator.comparingInt(Path::getNameCount)).orElse(null);
     }

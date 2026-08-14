@@ -219,6 +219,20 @@ public class FoojayJavaProvisionerTest {
     }
 
     @Test
+    public void findJavaHomeInsideMacOsBundle(@TempDir Path root) throws Throwable {
+        // Archive root is a .jdk bundle: Contents/Home is the real JAVA_HOME.
+        touchExecutable(root.resolve("Contents").resolve("Home").resolve("bin").resolve(JavaUtils.JAVA_EXECUTABLE));
+        assertEquals(root.resolve("Contents").resolve("Home"), findJavaHome(root));
+    }
+
+    @Test
+    public void findJavaHomeInsideNestedMacOsBundle(@TempDir Path root) throws Throwable {
+        Path home = root.resolve("zulu25.36.15-ca-jdk25.0.4-macosx_x64").resolve("Contents").resolve("Home");
+        touchExecutable(home.resolve("bin").resolve(JavaUtils.JAVA_EXECUTABLE));
+        assertEquals(home, findJavaHome(root));
+    }
+
+    @Test
     public void extractZipRoundTrip(@TempDir Path dir) throws Throwable {
         Path archive = dir.resolve("jdk.zip");
         byte[] payload = "binary".getBytes(StandardCharsets.UTF_8);
@@ -263,6 +277,68 @@ public class FoojayJavaProvisionerTest {
         Path extracted = dest.resolve("jdk-17").resolve("bin").resolve(JavaUtils.JAVA_EXECUTABLE);
         assertTrue(Files.isRegularFile(extracted));
         assertArrayEquals(payload, Files.readAllBytes(extracted));
+    }
+
+    @Test
+    public void extractZipFlattensMacOsBundle(@TempDir Path dir) throws Throwable {
+        Path archive = dir.resolve("zulu.zip");
+        byte[] payload = "binary".getBytes(StandardCharsets.UTF_8);
+        try (ZipOutputStream zip = new ZipOutputStream(Files.newOutputStream(archive))) {
+            zipDir(zip, "zulu25.36.15-ca-jdk25.0.4-macosx_x64/");
+            zipDir(zip, "zulu25.36.15-ca-jdk25.0.4-macosx_x64/Contents/");
+            zipDir(zip, "zulu25.36.15-ca-jdk25.0.4-macosx_x64/Contents/Home/");
+            zipDir(zip, "zulu25.36.15-ca-jdk25.0.4-macosx_x64/Contents/Home/bin/");
+            zipDir(zip, "zulu25.36.15-ca-jdk25.0.4-macosx_x64/Contents/MacOS/");
+            zipFile(zip, "zulu25.36.15-ca-jdk25.0.4-macosx_x64/Contents/Home/bin/" + JavaUtils.JAVA_EXECUTABLE, payload);
+            zipFile(zip, "zulu25.36.15-ca-jdk25.0.4-macosx_x64/Contents/Home/release", "JAVA_VERSION=\"25\"".getBytes(StandardCharsets.UTF_8));
+            zipFile(zip, "zulu25.36.15-ca-jdk25.0.4-macosx_x64/Contents/MacOS/libjli.dylib", "dylib".getBytes(StandardCharsets.UTF_8));
+            zipFile(zip, "zulu25.36.15-ca-jdk25.0.4-macosx_x64/Contents/Info.plist", "<plist/>".getBytes(StandardCharsets.UTF_8));
+        }
+        Path dest = dir.resolve("out");
+        Files.createDirectories(dest);
+        extractZip(archive, dest);
+
+        Path extracted = dest.resolve("bin").resolve(JavaUtils.JAVA_EXECUTABLE);
+        assertTrue(Files.isRegularFile(extracted), "Contents/Home should be flattened to the destination root");
+        assertArrayEquals(payload, Files.readAllBytes(extracted));
+        assertTrue(Files.isRegularFile(dest.resolve("release")));
+        assertFalse(Files.exists(dest.resolve("Contents")));
+        assertFalse(Files.exists(dest.resolve("zulu25.36.15-ca-jdk25.0.4-macosx_x64")));
+    }
+
+    @Test
+    public void extractTarGzFlattensMacOsBundle(@TempDir Path dir) throws Throwable {
+        Path archive = dir.resolve("zulu.tar.gz");
+        byte[] payload = "binary".getBytes(StandardCharsets.UTF_8);
+        try (TarArchiveOutputStream tar = new TarArchiveOutputStream(new GzipCompressorOutputStream(Files.newOutputStream(archive)))) {
+            tarDir(tar, "zulu25.36.15-ca-jdk25.0.4-macosx_x64/");
+            tarDir(tar, "zulu25.36.15-ca-jdk25.0.4-macosx_x64/Contents/");
+            tarDir(tar, "zulu25.36.15-ca-jdk25.0.4-macosx_x64/Contents/Home/");
+            tarDir(tar, "zulu25.36.15-ca-jdk25.0.4-macosx_x64/Contents/Home/bin/");
+            tarDir(tar, "zulu25.36.15-ca-jdk25.0.4-macosx_x64/Contents/Home/legal/");
+            tarDir(tar, "zulu25.36.15-ca-jdk25.0.4-macosx_x64/Contents/Home/legal/java.base/");
+            tarDir(tar, "zulu25.36.15-ca-jdk25.0.4-macosx_x64/Contents/Home/legal/java.se/");
+            tarDir(tar, "zulu25.36.15-ca-jdk25.0.4-macosx_x64/Contents/MacOS/");
+            tarFile(tar, "zulu25.36.15-ca-jdk25.0.4-macosx_x64/Contents/Home/bin/" + JavaUtils.JAVA_EXECUTABLE, payload, 0755);
+            tarFile(tar, "zulu25.36.15-ca-jdk25.0.4-macosx_x64/Contents/Home/release", "JAVA_VERSION=\"25\"".getBytes(StandardCharsets.UTF_8), 0644);
+            tarFile(tar, "zulu25.36.15-ca-jdk25.0.4-macosx_x64/Contents/Home/legal/java.base/LICENSE", "license".getBytes(StandardCharsets.UTF_8), 0644);
+            tarSymlink(tar, "zulu25.36.15-ca-jdk25.0.4-macosx_x64/Contents/Home/legal/java.se/LICENSE", "../java.base/LICENSE");
+            tarFile(tar, "zulu25.36.15-ca-jdk25.0.4-macosx_x64/Contents/MacOS/libjli.dylib", "dylib".getBytes(StandardCharsets.UTF_8), 0644);
+            tarFile(tar, "zulu25.36.15-ca-jdk25.0.4-macosx_x64/Contents/Info.plist", "<plist/>".getBytes(StandardCharsets.UTF_8), 0644);
+        }
+        Path dest = dir.resolve("out");
+        Files.createDirectories(dest);
+        extractTarGz(archive, dest);
+
+        Path extracted = dest.resolve("bin").resolve(JavaUtils.JAVA_EXECUTABLE);
+        assertTrue(Files.isRegularFile(extracted), "Contents/Home should be flattened to the destination root");
+        assertArrayEquals(payload, Files.readAllBytes(extracted));
+        assertTrue(Files.isRegularFile(dest.resolve("release")));
+        assertFalse(Files.exists(dest.resolve("Contents")));
+        assertFalse(Files.exists(dest.resolve("zulu25.36.15-ca-jdk25.0.4-macosx_x64")));
+        Path licenseLink = dest.resolve("legal").resolve("java.se").resolve("LICENSE");
+        assertTrue(Files.isSymbolicLink(licenseLink), "relative bundle symlinks must survive flattening");
+        assertEquals("license", new String(Files.readAllBytes(licenseLink), StandardCharsets.UTF_8));
     }
 
     @Test
@@ -373,12 +449,26 @@ public class FoojayJavaProvisionerTest {
         zip.closeEntry();
     }
 
+    private static void tarDir(TarArchiveOutputStream tar, String name) throws IOException {
+        TarArchiveEntry entry = new TarArchiveEntry(name);
+        entry.setMode(0755);
+        tar.putArchiveEntry(entry);
+        tar.closeArchiveEntry();
+    }
+
     private static void tarFile(TarArchiveOutputStream tar, String name, byte[] data, int mode) throws IOException {
         TarArchiveEntry entry = new TarArchiveEntry(name);
         entry.setSize(data.length);
         entry.setMode(mode);
         tar.putArchiveEntry(entry);
         tar.write(data);
+        tar.closeArchiveEntry();
+    }
+
+    private static void tarSymlink(TarArchiveOutputStream tar, String name, String target) throws IOException {
+        TarArchiveEntry entry = new TarArchiveEntry(name, TarArchiveEntry.LF_SYMLINK);
+        entry.setLinkName(target);
+        tar.putArchiveEntry(entry);
         tar.closeArchiveEntry();
     }
 
