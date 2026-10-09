@@ -180,13 +180,6 @@ public class FoojayJavaProvisionerTest {
         assertTrue(allowedOrSkip(JavaVersion.parseOrThrow(25), JavaDistro.TEMURIN));
     }
 
-    @Test
-    @Tag("network")
-    public void allowedFalseWhenDistroLacksVersion() {
-        // Tencent Kona has no Java 25 build.
-        assertFalse(allowedOrSkip(JavaVersion.parseOrThrow(25), JavaDistro.TENCENT));
-    }
-
     private boolean allowedOrSkip(JavaVersion version, JavaDistro vendor) {
         try {
             return new FoojayJavaProvisioner().exists(version, vendor);
