@@ -1,21 +1,11 @@
 plugins {
     id 'java-library'
-    id 'maven-publish'
+    id 'com.cleanroommc.conventions.base'
+    id 'com.cleanroommc.conventions.publishing'
     id 'com.gradleup.shadow' version '9.+'
 }
 
-group = 'com.cleanroommc'
-version = '2.1.6'
 base.archivesName = 'java-utils'
-
-java {
-    toolchain {
-        sourceCompatibility = JavaVersion.VERSION_1_8
-        targetCompatibility = JavaVersion.VERSION_1_8
-        languageVersion = JavaLanguageVersion.of(8)
-    }
-    withSourcesJar()
-}
 
 sourceSets {
     api
@@ -32,14 +22,6 @@ sourceSets {
         compileClasspath += checker.output
         runtimeClasspath += checker.output
     }
-}
-
-repositories {
-    maven {
-        name 'CleanroomMC'
-        url 'https://maven.cleanroommc.com'
-    }
-    mavenCentral()
 }
 
 configurations {
@@ -185,15 +167,8 @@ def pomDependencies = { deps -> { xml ->
 }}
 
 publishing {
-    repositories {
-        maven {
-            name 'CleanroomMaven'
-            url 'https://repo.cleanroommc.com/releases'
-            credentials(PasswordCredentials)
-        }
-    }
     publications {
-        mavenJava(MavenPublication) {
+        maven(MavenPublication) {
             artifactId 'java-utils'
             from components.java
         }
