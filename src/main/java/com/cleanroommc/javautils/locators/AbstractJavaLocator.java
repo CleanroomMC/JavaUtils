@@ -103,7 +103,7 @@ public abstract class AbstractJavaLocator implements JavaLocator {
         }
         this.reportScan(directory);
         try (Stream<Path> stream = Files.list(directory)) {
-            stream.filter(Files::isDirectory).forEach(sub -> {
+            stream.filter(sub -> Files.isDirectory(sub) && !sub.getFileName().toString().startsWith(".")).forEach(sub -> {
                 Path location = sub.resolve("bin").resolve(JavaUtils.JAVA_EXECUTABLE);
                 if (Files.isRegularFile(location)) {
                     parseOrLog(installs, location);
