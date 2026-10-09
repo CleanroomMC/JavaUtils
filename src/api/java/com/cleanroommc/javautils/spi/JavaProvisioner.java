@@ -129,6 +129,21 @@ public interface JavaProvisioner {
     }
 
     /**
+     * Chooses whether provisioned distributions bundle JavaFX. It is off by default, so downloads skip
+     * JavaFX builds. When on, only installations that bundle JavaFX are reused or downloaded.
+     *
+     * @param bundle {@code true} to require JavaFX
+     * @return this provisioner, for chaining
+     * @throws UnsupportedOperationException if {@code bundle} is {@code true} and this provisioner cannot tell JavaFX builds apart
+     */
+    default JavaProvisioner bundleJavaFX(boolean bundle) {
+        if (bundle) {
+            throw new UnsupportedOperationException(getClass().getName() + " cannot provision JavaFX distributions");
+        }
+        return this;
+    }
+
+    /**
      * Provisions a Java installation of the given version from any vendor.
      *
      * @param version   the desired version of the java install

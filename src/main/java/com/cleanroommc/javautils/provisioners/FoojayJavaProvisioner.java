@@ -73,10 +73,17 @@ public class FoojayJavaProvisioner implements JavaProvisioner {
     private static final int MAX_SCAN_DEPTH = 4;
 
     private volatile DownloadListener downloadListener = DownloadListener.NONE;
+    private volatile boolean bundleJavaFX;
 
     @Override
     public JavaProvisioner onDownload(@Nullable DownloadListener listener) {
         this.downloadListener = listener == null ? DownloadListener.NONE : listener;
+        return this;
+    }
+
+    @Override
+    public JavaProvisioner bundleJavaFX(boolean bundle) {
+        this.bundleJavaFX = bundle;
         return this;
     }
 
@@ -99,7 +106,7 @@ public class FoojayJavaProvisioner implements JavaProvisioner {
         }
         Platform platform = Platform.current();
         String archiveType = platform.isWindows() ? "zip" : "tar.gz";
-        return hasPackage(packagesQuery(version, distributionId, platform, archiveType));
+        return hasPackage(packagesQuery(version, distributionId, platform, archiveType, this.bundleJavaFX));
     }
 
     @Override
@@ -113,11 +120,26 @@ public class FoojayJavaProvisioner implements JavaProvisioner {
         Set<JavaInstall> candidates = new LinkedHashSet<>();
         scan(directory, MAX_SCAN_DEPTH, candidates);
         for (JavaInstall install : candidates) {
-            if (matches(install, featureVersion, vendor) && versionSatisfies(install.version(), version)) {
+            if (matches(install, featureVersion, vendor) && versionSatisfies(install.version(), version)
+                    && (!this.bundleJavaFX || bundlesJavaFX(install.home()))) {
                 return install;
             }
         }
         return null;
+    }
+
+    /**
+     * JDK 9+ lists its modules in {@code release}, JDK 8 ships JavaFX as {@code jfxrt.jar}.
+     */
+    private static boolean bundlesJavaFX(Path home) {
+        if (Files.isRegularFile(home.resolve("jre").resolve("lib").resolve("ext").resolve("jfxrt.jar"))) {
+            return true;
+        }
+        try (Stream<String> lines = Files.lines(home.resolve("release"))) {
+            return lines.anyMatch(line -> line.startsWith("MODULES=") && line.contains("javafx.base"));
+        } catch (IOException | UncheckedIOException e) {
+            return false;
+        }
     }
 
     private static boolean matches(JavaInstall install, int featureVersion, JavaDistro vendor) {
@@ -181,7 +203,7 @@ public class FoojayJavaProvisioner implements JavaProvisioner {
         }
         String archiveType = platform.isWindows() ? "zip" : "tar.gz";
 
-        String query = packagesQuery(version, distributionId, platform, archiveType);
+        String query = packagesQuery(version, distributionId, platform, archiveType, this.bundleJavaFX);
         JsonObject pkg = firstPackage(query, version, distro);
         String filename = requireString(pkg, "filename");
         String downloadUrl = requireString(requireObject(pkg, "links"), "pkg_download_redirect");
@@ -233,7 +255,7 @@ public class FoojayJavaProvisioner implements JavaProvisioner {
      * {@code latest=available} as it overrides the pinned patch and would otherwise return the newest
      * build of the feature instead of the exact version asked for.
      */
-    private static String packagesQuery(JavaVersion version, String distributionId, Platform platform, String archiveType) {
+    private static String packagesQuery(JavaVersion version, String distributionId, Platform platform, String archiveType, boolean javaFX) {
         StringBuilder query = new StringBuilder(DISCO_PACKAGES);
         query.append("?version=").append(foojayVersion(version));
         query.append("&distribution=").append(distributionId);
@@ -244,6 +266,7 @@ public class FoojayJavaProvisioner implements JavaProvisioner {
         }
         query.append("&archive_type=").append(archiveType);
         query.append("&package_type=jdk");
+        query.append("&javafx_bundled=").append(javaFX);
         if (numericComponents(version).length <= 1) {
             query.append("&latest=available");
         }

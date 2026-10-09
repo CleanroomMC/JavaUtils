@@ -404,8 +404,33 @@ public class FoojayJavaProvisionerTest {
     @Tag("network")
     public void linuxPackageMatchesTheHostCLibrary() throws Throwable {
         assumeTrue(Platform.current().isLinux());
-        JsonObject pkg = queryPackage(JavaVersion.parseOrThrow(25), JavaDistro.ZULU);
+        JsonObject pkg = queryPackage(JavaVersion.parseOrThrow(25), JavaDistro.ZULU, false);
         assertEquals(invokeStatic("linuxLibC", new Class<?>[0]), pkg.get("lib_c_type").getAsString());
+    }
+
+    /**
+     * Foojay lists Liberica's JavaFX "full" builds ahead of its plain ones on several platforms.
+     */
+    @Test
+    @Tag("network")
+    public void javaFXBuildsAreOptIn() throws Throwable {
+        JavaVersion version = JavaVersion.parseOrThrow(25);
+        assertFalse(queryPackage(version, JavaDistro.LIBERICA, false).get("javafx_bundled").getAsBoolean());
+        assertTrue(queryPackage(version, JavaDistro.LIBERICA, true).get("javafx_bundled").getAsBoolean());
+    }
+
+    @Test
+    public void bundlesJavaFXReadsTheReleaseModules(@TempDir Path dir) throws Throwable {
+        Path modern = Files.createDirectories(dir.resolve("modern"));
+        Files.write(modern.resolve("release"), "JAVA_VERSION=\"25\"\nMODULES=\"java.base javafx.base javafx.graphics\"\n".getBytes(StandardCharsets.UTF_8));
+        Path plain = Files.createDirectories(dir.resolve("plain"));
+        Files.write(plain.resolve("release"), "JAVA_VERSION=\"25\"\nMODULES=\"java.base java.desktop\"\n".getBytes(StandardCharsets.UTF_8));
+        Path legacy = Files.createDirectories(dir.resolve("legacy/jre/lib/ext"));
+        Files.write(legacy.resolve("jfxrt.jar"), new byte[0]);
+
+        assertTrue(bundlesJavaFX(modern));
+        assertFalse(bundlesJavaFX(plain));
+        assertTrue(bundlesJavaFX(dir.resolve("legacy")));
     }
 
     @Test
@@ -438,6 +463,10 @@ public class FoojayJavaProvisionerTest {
         Files.createSymbolicLink(Files.createDirectories(dir.resolve("jdk")).resolve("top"), runningHome);
         invokeStatic("scan", new Class<?>[] { Path.class, int.class, Set.class }, dir, 4, found);
         assertEquals(1, found.size());
+    }
+
+    private boolean bundlesJavaFX(Path home) throws Throwable {
+        return (boolean) invokeStatic("bundlesJavaFX", new Class<?>[] { Path.class }, home);
     }
 
     private static JavaInstall install(int major, JavaDistro distro, boolean jdk) {
@@ -568,15 +597,15 @@ public class FoojayJavaProvisionerTest {
     }
 
     private JsonObject queryPackage(JavaVersion version) throws Throwable {
-        return queryPackage(version, JavaDistro.TEMURIN);
+        return queryPackage(version, JavaDistro.TEMURIN, false);
     }
 
-    private JsonObject queryPackage(JavaVersion version, JavaDistro distro) throws Throwable {
+    private JsonObject queryPackage(JavaVersion version, JavaDistro distro, boolean javaFX) throws Throwable {
         Platform platform = Platform.current();
         String archiveType = platform.isWindows() ? "zip" : "tar.gz";
         String url = (String) invokeStatic("packagesQuery",
-                new Class<?>[] { JavaVersion.class, String.class, Platform.class, String.class },
-                version, distro.foojayId(), platform, archiveType);
+                new Class<?>[] { JavaVersion.class, String.class, Platform.class, String.class, boolean.class },
+                version, distro.foojayId(), platform, archiveType, javaFX);
         try {
             return (JsonObject) invoke(new FoojayJavaProvisioner(), "firstPackage",
                     new Class<?>[] { String.class, JavaVersion.class, JavaDistro.class },
