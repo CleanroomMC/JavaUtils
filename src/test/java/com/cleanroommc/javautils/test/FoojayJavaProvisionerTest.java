@@ -1,6 +1,7 @@
 package com.cleanroommc.javautils.test;
 
 import com.cleanroommc.javautils.JavaUtils;
+import com.cleanroommc.javautils.api.DownloadListener;
 import com.cleanroommc.javautils.api.JavaDistro;
 import com.cleanroommc.javautils.api.JavaInstall;
 import com.cleanroommc.javautils.api.JavaVersion;
@@ -9,6 +10,7 @@ import com.cleanroommc.javautils.spi.JavaProvisioner;
 import com.cleanroommc.platformutils.Platform;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.sun.net.httpserver.HttpServer;
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream;
 import org.apache.commons.compress.compressors.gzip.GzipCompressorOutputStream;
@@ -19,10 +21,14 @@ import org.junit.jupiter.api.io.TempDir;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
@@ -389,6 +395,38 @@ public class FoojayJavaProvisionerTest {
     public void pinnedRequestResolvesExactPatch() throws Throwable {
         JsonObject pkg = queryPackage(JavaVersion.parseOrThrow("17.0.4"));
         assertEquals("17.0.4", pkg.get("distribution_version").getAsString());
+    }
+
+    @Test
+    public void truncatedDownloadFails(@TempDir Path dir) throws Throwable {
+        HttpServer server = HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0);
+        server.createContext("/jdk.tar.gz", exchange -> {
+            exchange.sendResponseHeaders(200, 1024);
+            exchange.getResponseBody().write(new byte[512]);
+            exchange.getHttpContext().getServer().stop(0);
+        });
+        server.start();
+        try {
+            String url = "http://127.0.0.1:" + server.getAddress().getPort() + "/jdk.tar.gz";
+            assertThrows(IOException.class, () -> invokeStatic("httpDownload",
+                    new Class<?>[] { String.class, Path.class, String.class, DownloadListener.class },
+                    url, dir.resolve("jdk.tar.gz"), "jdk.tar.gz", DownloadListener.NONE));
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    @Test
+    public void scanSkipsUnfinishedDownloads(@TempDir Path dir) throws Throwable {
+        Path runningHome = Paths.get(System.getProperty("java.home")).toRealPath();
+        Files.createSymbolicLink(Files.createDirectories(dir.resolve(".jdk.part")).resolve("top"), runningHome);
+        Set<JavaInstall> found = new HashSet<>();
+        invokeStatic("scan", new Class<?>[] { Path.class, int.class, Set.class }, dir, 4, found);
+        assertTrue(found.isEmpty());
+
+        Files.createSymbolicLink(Files.createDirectories(dir.resolve("jdk")).resolve("top"), runningHome);
+        invokeStatic("scan", new Class<?>[] { Path.class, int.class, Set.class }, dir, 4, found);
+        assertEquals(1, found.size());
     }
 
     private static JavaInstall install(int major, JavaDistro distro, boolean jdk) {

@@ -140,7 +140,8 @@ public class FoojayJavaProvisioner implements JavaProvisioner {
             return;
         }
         try (Stream<Path> stream = Files.list(directory)) {
-            stream.filter(Files::isDirectory).forEach(sub -> scan(sub, remainingDepth - 1, out));
+            stream.filter(sub -> Files.isDirectory(sub) && !sub.getFileName().toString().startsWith("."))
+                    .forEach(sub -> scan(sub, remainingDepth - 1, out));
         } catch (IOException ignored) {
         }
     }
@@ -184,26 +185,41 @@ public class FoojayJavaProvisioner implements JavaProvisioner {
         String downloadUrl = requireString(requireObject(pkg, "links"), "pkg_download_redirect");
 
         Files.createDirectories(directory);
-        Path archive = directory.resolve(filename);
+        String name = stripExtension(filename);
+        // Hidden names keep an interrupted download out of every scan, the install only appears once it is complete
+        Path archive = directory.resolve("." + filename + ".part");
+        Path staging = directory.resolve("." + name + ".part");
+        Path destination = directory.resolve(name);
         try {
+            if (Files.exists(staging)) {
+                deleteRecursively(staging);
+            }
             httpDownload(downloadUrl, archive, filename, this.downloadListener);
-            Path destination = directory.resolve(stripExtension(filename));
+            Files.createDirectories(staging);
+            if ("zip".equals(archiveType)) {
+                extractZip(archive, staging);
+            } else {
+                extractTarGz(archive, staging);
+            }
+            if (findJavaHome(staging) == null) {
+                throw new IOException("Downloaded archive " + filename + " did not contain a Java install");
+            }
             if (Files.exists(destination)) {
                 deleteRecursively(destination);
             }
-            Files.createDirectories(destination);
-            if ("zip".equals(archiveType)) {
-                extractZip(archive, destination);
-            } else {
-                extractTarGz(archive, destination);
-            }
+            Files.move(staging, destination, StandardCopyOption.ATOMIC_MOVE);
             Path home = findJavaHome(destination);
-            if (home == null) {
-                throw new IOException("Downloaded archive " + filename + " did not contain a Java install");
+            try {
+                return JavaUtils.parseInstall(home.resolve("bin").resolve(JavaUtils.JAVA_EXECUTABLE));
+            } catch (IOException e) {
+                deleteRecursively(destination);
+                throw e;
             }
-            return JavaUtils.parseInstall(home.resolve("bin").resolve(JavaUtils.JAVA_EXECUTABLE));
         } finally {
             Files.deleteIfExists(archive);
+            if (Files.exists(staging)) {
+                deleteRecursively(staging);
+            }
         }
     }
 
@@ -329,6 +345,10 @@ public class FoojayJavaProvisioner implements JavaProvisioner {
                     out.write(buffer, 0, read);
                     downloaded += read;
                     listener.onProgress(downloaded, total, filename);
+                }
+                // A dropped connection can end the stream early without an error
+                if (total >= 0 && downloaded != total) {
+                    throw new IOException("Download of " + filename + " stopped at " + downloaded + " of " + total + " bytes");
                 }
             }
         } finally {
