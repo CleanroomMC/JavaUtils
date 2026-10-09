@@ -1,15 +1,21 @@
 /*
- * Copyright (c) Forge Development LLC and contributors
- * SPDX-License-Identifier: LGPL-2.1-only
+ * Copyright (c) 2025-2026 CleanroomMC contributors
+ * SPDX-License-Identifier: LGPL-3.0-only
  */
+
 package com.cleanroommc.javautils.api;
 
 import org.jspecify.annotations.Nullable;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.Objects;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class JavaVersion implements Comparable<JavaVersion> {
+
+    // JEP 322 version strings, plus the legacy 1.8.0_392 update suffix which is read as the build
+    private static final Pattern FORMAT = Pattern.compile(
+            "(\\d+(?:\\.\\d+)*)(?:_(\\d+)|-([a-zA-Z0-9]+))?(?:\\+(\\d*))?(?:-([-a-zA-Z0-9.]+))?");
 
     public static @Nullable JavaVersion parse(String s) {
         try {
@@ -20,254 +26,116 @@ public class JavaVersion implements Comparable<JavaVersion> {
     }
 
     public static @Nullable JavaVersion parse(int major) {
-        try {
-            return parseOrThrow(major);
-        } catch (IllegalArgumentException e) {
-            return null;
-        }
+        return major <= 0 ? null : parseOrThrow(major);
     }
 
     public static JavaVersion parseOrThrow(int major) {
         if (major <= 0) {
             throw new IllegalArgumentException("Major version must be positive, got: " + major);
         }
-        if (major <= 8) {
-            return new JavaVersion("1." + major, new int[] { 1, major }, null, -1, null);
-        }
-        return new JavaVersion(String.valueOf(major), new int[] { major }, null, -1, null);
+        return parseOrThrow(major <= 8 ? "1." + major : String.valueOf(major));
     }
 
     public static JavaVersion parseOrThrow(String s) {
-        if (s == null) {
-            throw new NullPointerException("Attempted to parse null string for JavaVersion.");
+        Objects.requireNonNull(s, "Attempted to parse null string for JavaVersion.");
+        Matcher matcher = FORMAT.matcher(s);
+        if (!matcher.matches()) {
+            throw new IllegalArgumentException("Invalid JavaVersion: " + s);
         }
-        if (s.isEmpty() || s.trim().isEmpty()) {
-            throw new IllegalArgumentException("Attempted to parse empty string for JavaVersion.");
+        String[] parts = matcher.group(1).split("\\.");
+        // 1.8.0 and 8.0 are the same version
+        int from = parts.length > 1 && parts[0].equals("1") ? 1 : 0;
+        int[] vnum = new int[parts.length - from];
+        for (int i = 0; i < vnum.length; i++) {
+            vnum[i] = Integer.parseInt(parts[from + i]);
         }
-        List<Integer> lvnum = new ArrayList<>();
-        String pre = null;
-        int build = -1;
-        String opt = null;
-
-        Segment seg = Segment.VNUM;
-        char[] chrs = s.toCharArray();
-        for (int x = 0; x < chrs.length; x++) {
-            char c = chrs[x];
-            int start = x;
-            if (seg == Segment.VNUM || seg == Segment.BUILD) {
-                // Make a number until the next non-digit
-                int val = 0;
-                while (seg.valid(c)) {
-                    val *= 10;
-                    val += c - '0';
-                    if (++x == chrs.length) break;
-                    c = chrs[x];
-                }
-
-                if (seg == Segment.VNUM) {
-                    lvnum.add(val);
-                } else if (start != x) {
-                    build = val;
-                }
-
-                if (x == chrs.length) {
-                    break;
-                }
-                if (seg == Segment.VNUM) {
-                    switch (c) {
-                        case '.':
-                            break;
-                        case '-':
-                            seg = Segment.PRE;
-                            break;
-                        case '+': // For post-8 versions
-                        case '_': // For pre-9 versions
-                            seg = Segment.BUILD;
-                            break;
-                        default:
-                            throw new IllegalArgumentException("Invalid JavaVersion: " + s);
-                    }
-                } else {
-                    if (c == '-') {
-                        seg = Segment.OPT;
-                    } else {
-                        throw new IllegalArgumentException("Invalid JavaVersion: " + s);
-                    }
-                }
-            } else {
-                while (seg.valid(c)) {
-                    if (++x == chrs.length) {
-                        break;
-                    }
-                    c = chrs[x];
-                }
-
-                String val = new String(chrs, start, x - start);
-                if (seg == Segment.PRE) {
-                    pre = val;
-                } else {
-                    opt = val;
-                }
-                if (x == chrs.length) {
-                    break;
-                } else if (seg == Segment.PRE && c == '-') {
-                    seg = Segment.BUILD;
-                } else {
-                    throw new IllegalArgumentException("Invalid JavaVersion: " + s);
-                }
-            }
-        }
-
-        int[] vnum = new int[lvnum.size()];
-        for (int x = 0; x < lvnum.size(); x++) {
-            vnum[x] = lvnum.get(x);
-        }
-        return new JavaVersion(s, vnum, pre, build, opt);
-    }
-
-    private enum Segment {
-
-        VNUM,  // [1-9][0-9]*((\.0)*\.[1-9][0-9]*)*
-        PRE,   // - [a-zA-Z0-9]+
-        BUILD, // + 0|[1-9][0-9]*
-        OPT;   // - [-a-zA-Z0-9.]+
-
-        public boolean valid(char c) {
-            if ('0' <= c && c <= '9') {
-                return true;
-            }
-            if (this != PRE && this != OPT) {
-                return false;
-            }
-            if (('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z')) {
-                return true;
-            }
-            return this == OPT && (c == '-' || c == '.');
-        }
-
+        String build = matcher.group(4) == null || matcher.group(4).isEmpty() ? matcher.group(2) : matcher.group(4);
+        return new JavaVersion(s, vnum, matcher.group(3), build == null ? -1 : Integer.parseInt(build), matcher.group(5));
     }
 
     private final String str;
-    private final @Nullable String pre, opt;
     private final int[] vnum;
-    private final int preI, build;
+    private final @Nullable String pre, opt;
+    private final int build;
 
     private JavaVersion(String str, int[] vnum, @Nullable String pre, int build, @Nullable String opt) {
         this.str = str;
         this.vnum = vnum;
         this.pre = pre;
-        this.preI = toInt(pre);
         this.build = build;
         this.opt = opt;
     }
 
     public int major() {
-        if (this.vnum[0] != 1 || this.vnum.length == 1) {
-            return this.vnum[0];
-        }
-        return this.vnum[1];
+        return this.vnum[0];
     }
 
     public int minor() {
-        if (this.vnum[0] != 1 || this.vnum.length == 2) {
-            return this.vnum[1];
-        }
-        return this.vnum[2];
+        return this.vnum.length > 1 ? this.vnum[1] : 0;
     }
 
     public int update() {
-        if (this.vnum[0] != 1 || this.vnum.length == 3) {
-            return this.vnum[2];
-        }
-        return this.vnum[3];
+        return this.vnum.length > 2 ? this.vnum[2] : 0;
     }
 
     public @Nullable String pre() {
-        return pre;
+        return this.pre;
     }
 
     public int build() {
-        return build;
+        return this.build;
     }
 
     public @Nullable String opt() {
-        return opt;
+        return this.opt;
     }
 
-    private static int toInt(@Nullable String s) {
-        if (s == null) {
-            return 0;
-        }
-        int val = 0;
-        for (char c : s.toCharArray()) {
-            if ('0' <= c && c <= '0') {
-                val *= 10;
-                val += 10;
-            } else {
-                return -1;
+    /**
+     * Orders newer versions first. A release sorts before its pre-releases.
+     */
+    @Override
+    public int compareTo(JavaVersion o) {
+        // Missing components count as zero, so 21 and 21.0.0 are the same version
+        for (int i = 0; i < this.vnum.length || i < o.vnum.length; i++) {
+            int mine = i < this.vnum.length ? this.vnum[i] : 0;
+            int theirs = i < o.vnum.length ? o.vnum[i] : 0;
+            if (mine != theirs) {
+                return Integer.compare(theirs, mine);
             }
         }
-        return val;
-    }
-
-    private int compareInts(int a, int b) {
-        if (a != -1) {
-            return b == -1 ? -1 : b - a;
+        if (!Objects.equals(this.pre, o.pre)) {
+            return this.pre == null ? -1 : o.pre == null ? 1 : o.pre.compareTo(this.pre);
         }
-        return b != -1 ? 1 : 0;
+        if (this.build != o.build) {
+            return Integer.compare(o.build, this.build);
+        }
+        if (!Objects.equals(this.opt, o.opt)) {
+            return this.opt == null ? -1 : o.opt == null ? 1 : o.opt.compareTo(this.opt);
+        }
+        return 0;
     }
 
     @Override
-    public int compareTo(JavaVersion o) {
-        if (o == null) {
-            throw new NullPointerException();
-        }
-        int len = this.vnum.length;
-        if (o.vnum.length < len) {
-            len = o.vnum.length;
-        }
-        for (int x = 0; x < len; x++) {
-            if (vnum[x] != o.vnum[x]) {
-                return o.vnum[x] - vnum[x];
-            }
-        }
-        if (vnum.length != o.vnum.length) {
-            return o.vnum.length - vnum.length;
-        }
-        int ret = compareInts(preI, o.preI);
-        if (ret != 0) {
-            return ret;
-        }
-        if (pre == null) {
-            if (o.pre != null) {
-                return -1;
-            }
-        } else {
-            ret = pre.compareTo(o.pre);
-            if (ret != 0) {
-                return ret;
-            }
-        }
+    public boolean equals(Object obj) {
+        return obj instanceof JavaVersion && this.compareTo((JavaVersion) obj) == 0;
+    }
 
-        ret = compareInts(build, o.build);
-        if (ret != 0) {
-            return ret;
+    @Override
+    public int hashCode() {
+        int length = this.vnum.length;
+        while (length > 1 && this.vnum[length - 1] == 0) {
+            length--;
         }
-
-        if (opt == null) {
-            return o.opt == null ? 0 : -1;
+        int hash = 31 * (31 * Objects.hashCode(this.pre) + this.build) + Objects.hashCode(this.opt);
+        for (int i = 0; i < length; i++) {
+            hash = 31 * hash + this.vnum[i];
         }
-        return opt.compareTo(o.opt);
+        return hash;
     }
 
     @Override
     public String toString() {
         return this.str;
-    }
-
-    @Override
-    public int hashCode() {
-        return this.str.hashCode();
     }
 
 }
