@@ -397,6 +397,17 @@ public class FoojayJavaProvisionerTest {
         assertEquals("17.0.4", pkg.get("distribution_version").getAsString());
     }
 
+    /**
+     * Foojay lists Zulu's musl build ahead of its glibc build, and neither runs against the other C library.
+     */
+    @Test
+    @Tag("network")
+    public void linuxPackageMatchesTheHostCLibrary() throws Throwable {
+        assumeTrue(Platform.current().isLinux());
+        JsonObject pkg = queryPackage(JavaVersion.parseOrThrow(25), JavaDistro.ZULU);
+        assertEquals(invokeStatic("linuxLibC", new Class<?>[0]), pkg.get("lib_c_type").getAsString());
+    }
+
     @Test
     public void truncatedDownloadFails(@TempDir Path dir) throws Throwable {
         HttpServer server = HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0);
@@ -557,15 +568,19 @@ public class FoojayJavaProvisionerTest {
     }
 
     private JsonObject queryPackage(JavaVersion version) throws Throwable {
+        return queryPackage(version, JavaDistro.TEMURIN);
+    }
+
+    private JsonObject queryPackage(JavaVersion version, JavaDistro distro) throws Throwable {
         Platform platform = Platform.current();
         String archiveType = platform.isWindows() ? "zip" : "tar.gz";
         String url = (String) invokeStatic("packagesQuery",
                 new Class<?>[] { JavaVersion.class, String.class, Platform.class, String.class },
-                version, JavaDistro.TEMURIN.foojayId(), platform, archiveType);
+                version, distro.foojayId(), platform, archiveType);
         try {
             return (JsonObject) invoke(new FoojayJavaProvisioner(), "firstPackage",
                     new Class<?>[] { String.class, JavaVersion.class, JavaDistro.class },
-                    url, version, JavaDistro.TEMURIN);
+                    url, version, distro);
         } catch (IOException e) {
             abort("Foojay API unreachable: " + e.getMessage());
             return null; // unreachable

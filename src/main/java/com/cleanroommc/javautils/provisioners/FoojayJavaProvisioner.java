@@ -25,6 +25,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.io.UncheckedIOException;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
@@ -44,6 +45,7 @@ import java.util.Enumeration;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.stream.Stream;
 
@@ -235,8 +237,11 @@ public class FoojayJavaProvisioner implements JavaProvisioner {
         StringBuilder query = new StringBuilder(DISCO_PACKAGES);
         query.append("?version=").append(foojayVersion(version));
         query.append("&distribution=").append(distributionId);
-        query.append("&architecture=").append(architecture(platform));
+        query.append("&architecture=").append(architecture());
         query.append("&operating_system=").append(operatingSystem(platform));
+        if (platform.isLinux()) {
+            query.append("&lib_c_type=").append(linuxLibC());
+        }
         query.append("&archive_type=").append(archiveType);
         query.append("&package_type=jdk");
         if (numericComponents(version).length <= 1) {
@@ -298,12 +303,46 @@ public class FoojayJavaProvisioner implements JavaProvisioner {
         return element.getAsJsonObject();
     }
 
+    /**
+     * {@link Platform} reports every system besides Windows and macOS as Linux.
+     * Foojay finds nothing for an unknown name such as {@code freebsd}, instead of serving a Linux JDK that cannot run.
+     */
     private static String operatingSystem(Platform platform) {
-        return platform.isWindows() ? "windows" : platform.isMacOS() ? "macos" : "linux";
+        return platform.isWindows() ? "windows" : platform.isMacOS() ? "macos" : System.getProperty("os.name").toLowerCase(Locale.ROOT);
     }
 
-    private static String architecture(Platform platform) {
-        return platform.isArm() ? (platform.is64Bit() ? "aarch64" : "arm") : (platform.is64Bit() ? "x64" : "x86");
+    /**
+     * {@link Platform} only knows 64-bit and ARM, which would turn riscv64, ppc64le or s390x into x64.
+     * Every other value is already Foojay's name for it, or one Foojay finds nothing for.
+     */
+    private static String architecture() {
+        String arch = System.getProperty("os.arch").toLowerCase(Locale.ROOT);
+        switch (arch) {
+            case "amd64":
+            case "x86_64":
+                return "x64";
+            case "i386":
+            case "i486":
+            case "i586":
+            case "i686":
+                return "x86";
+            case "arm64":
+                return "aarch64";
+            default:
+                return arch;
+        }
+    }
+
+    /**
+     * Foojay lists musl and glibc builds together, and neither runs against the other C library.
+     * The C library this JVM mapped is the one the host has.
+     */
+    private static String linuxLibC() {
+        try (Stream<String> maps = Files.lines(Paths.get("/proc/self/maps"))) {
+            return maps.anyMatch(line -> line.contains("/ld-musl-")) ? "musl" : "glibc";
+        } catch (IOException | UncheckedIOException e) {
+            return "glibc";
+        }
     }
 
     private static String httpGet(String url) throws IOException {
