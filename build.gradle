@@ -1,6 +1,7 @@
 plugins {
     id 'java-library'
     id 'com.cleanroommc.conventions.base'
+    id 'com.cleanroommc.conventions.license'
     id 'com.cleanroommc.conventions.publishing'
     id 'com.gradleup.shadow' version '9.+'
 }
