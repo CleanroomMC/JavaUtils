@@ -80,6 +80,8 @@ public class JavaVersion implements Comparable<JavaVersion> {
 
     /**
      * Returns the numeric components as written, major first, without the legacy {@code 1.} prefix.
+     *
+     * @since 2.2.0
      */
     public int[] components() {
         return this.vnum.clone();

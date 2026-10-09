@@ -29,7 +29,7 @@ import java.util.ServiceLoader;
  * Implementations are registered as {@link ServiceLoader} services and located at runtime via
  * {@link #provisioners()} or {@link #provisioner(Class)}.
  *
- * @since X.Y.Z
+ * @since 2.0.0
  */
 public interface JavaProvisioner {
 
@@ -140,6 +140,7 @@ public interface JavaProvisioner {
      * @param bundle {@code true} to require JavaFX
      * @return this provisioner, for chaining
      * @throws UnsupportedOperationException if {@code bundle} is {@code true} and this provisioner cannot tell JavaFX builds apart
+     * @since 2.2.0
      */
     default JavaProvisioner bundleJavaFX(boolean bundle) {
         if (bundle) {
