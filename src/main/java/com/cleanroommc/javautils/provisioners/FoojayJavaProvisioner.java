@@ -44,12 +44,11 @@ import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.PosixFilePermission;
 import java.nio.file.attribute.PosixFilePermissions;
-import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.Enumeration;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
-import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.stream.Stream;
@@ -601,44 +600,17 @@ public class FoojayJavaProvisioner implements JavaProvisioner {
     }
 
     /**
-     * Extracts the leading numeric version components (major first) and
-     * dropping the legacy {@code 1.} prefix. Stopping at any pre-release/build metadata.
+     * Returns the numeric version components, major first.
+     * A legacy {@code 1.8.0_392} version carries its update in the build, so it is appended.
      */
     private static int[] numericComponents(JavaVersion version) {
-        String raw = version.toString().trim();
-        List<Integer> parts = new ArrayList<>();
-        StringBuilder number = new StringBuilder();
-        for (int i = 0; i < raw.length(); i++) {
-            char c = raw.charAt(i);
-            if (c >= '0' && c <= '9') {
-                number.append(c);
-            } else if (c == '.' || c == '_') {
-                flush(parts, number);
-            } else {
-                // '+' build metadata or '-' pre-release
-                flush(parts, number);
-                break;
-            }
+        int[] parts = version.components();
+        if (version.toString().indexOf('_') < 0) {
+            return parts;
         }
-        flush(parts, number);
-        if (parts.size() > 1 && parts.get(0) == 1) {
-            parts.remove(0); // 1.8 -> 8
-        }
-        if (parts.isEmpty()) {
-            parts.add(version.major());
-        }
-        int[] out = new int[parts.size()];
-        for (int i = 0; i < parts.size(); i++) {
-            out[i] = parts.get(i);
-        }
-        return out;
-    }
-
-    private static void flush(List<Integer> parts, StringBuilder number) {
-        if (number.length() > 0) {
-            parts.add(Integer.parseInt(number.toString()));
-            number.setLength(0);
-        }
+        int[] legacy = Arrays.copyOf(parts, parts.length + 1);
+        legacy[parts.length] = version.build();
+        return legacy;
     }
 
     private static String stripExtension(String filename) {

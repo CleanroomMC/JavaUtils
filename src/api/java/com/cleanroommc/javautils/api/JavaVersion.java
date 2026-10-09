@@ -78,6 +78,13 @@ public class JavaVersion implements Comparable<JavaVersion> {
         return this.vnum.length > 2 ? this.vnum[2] : 0;
     }
 
+    /**
+     * Returns the numeric components as written, major first, without the legacy {@code 1.} prefix.
+     */
+    public int[] components() {
+        return this.vnum.clone();
+    }
+
     public @Nullable String pre() {
         return this.pre;
     }
