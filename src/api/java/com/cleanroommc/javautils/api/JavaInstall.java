@@ -38,4 +38,17 @@ public interface JavaInstall extends JavaLocation, Comparable<JavaInstall> {
         }
     }
 
+    /**
+     * Checks whether this installation packs Java Flight Recorder.
+     * Every JFR capable installation ships {@code lib/jfr/default.jfc}, under {@code jre} for Java 8 JDKs.
+     * This covers OpenJDK 8u262+ backports, Oracle JDK 7u40+ and Java 11+ images that include {@code jdk.jfr}.
+     *
+     * @return {@code true} if Java Flight Recorder is available
+     * @since 2.3.0
+     */
+    default boolean jfr() {
+        Path home = home();
+        return Files.isRegularFile(home.resolve("lib/jfr/default.jfc")) || Files.isRegularFile(home.resolve("jre/lib/jfr/default.jfc"));
+    }
+
 }
