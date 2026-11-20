@@ -125,25 +125,11 @@ public class FoojayJavaProvisioner implements JavaProvisioner {
         scan(directory, MAX_SCAN_DEPTH, candidates);
         for (JavaInstall install : candidates) {
             if (matches(install, featureVersion, vendor) && versionSatisfies(install.version(), version)
-                    && (!this.bundleJavaFX || bundlesJavaFX(install.home()))) {
+                    && (!this.bundleJavaFX || install.javaFx())) {
                 return install;
             }
         }
         return null;
-    }
-
-    /**
-     * JDK 9+ lists its modules in {@code release}, JDK 8 ships JavaFX as {@code jfxrt.jar}.
-     */
-    private static boolean bundlesJavaFX(Path home) {
-        if (Files.isRegularFile(home.resolve("jre").resolve("lib").resolve("ext").resolve("jfxrt.jar"))) {
-            return true;
-        }
-        try (Stream<String> lines = Files.lines(home.resolve("release"))) {
-            return lines.anyMatch(line -> line.startsWith("MODULES=") && line.contains("javafx.base"));
-        } catch (IOException | UncheckedIOException e) {
-            return false;
-        }
     }
 
     private static boolean matches(JavaInstall install, int featureVersion, JavaDistro vendor) {
