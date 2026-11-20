@@ -5,6 +5,7 @@
 
 package com.cleanroommc.javautils;
 
+import com.cleanroommc.javautils.api.JavaAgent;
 import com.cleanroommc.javautils.api.JavaInstall;
 import com.cleanroommc.javautils.checker.JavaChecker;
 import com.cleanroommc.platformutils.Platform;
@@ -87,17 +88,19 @@ public final class JavaUtils {
     }
 
     /**
-     * Lists the jars passed through {@code -javaagent}, without their options.
+     * Lists the agents passed through {@code -javaagent}.
      * Agents attached at runtime through the Attach API are not listed.
      *
      * @since 2.3.0
      */
-    public static List<Path> getJavaAgents() {
-        List<Path> agents = new ArrayList<>();
+    public static List<JavaAgent> getJavaAgents() {
+        List<JavaAgent> agents = new ArrayList<>();
         for (String argument : ManagementFactory.getRuntimeMXBean().getInputArguments()) {
             if (argument.startsWith("-javaagent:")) {
                 int options = argument.indexOf('=');
-                agents.add(Paths.get(options == -1 ? argument.substring(11) : argument.substring(11, options)));
+                agents.add(options == -1
+                        ? new JavaAgent(Paths.get(argument.substring(11)), null, false)
+                        : new JavaAgent(Paths.get(argument.substring(11, options)), argument.substring(options + 1), false));
             }
         }
         return agents;
