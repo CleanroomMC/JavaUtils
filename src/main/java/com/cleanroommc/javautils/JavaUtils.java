@@ -10,6 +10,7 @@ import com.cleanroommc.javautils.checker.JavaChecker;
 import com.cleanroommc.platformutils.Platform;
 
 import java.io.*;
+import java.lang.management.ManagementFactory;
 import java.net.MalformedURLException;
 import java.net.URISyntaxException;
 import java.net.URL;
@@ -18,6 +19,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Pattern;
 
 public final class JavaUtils {
 
@@ -30,6 +32,131 @@ public final class JavaUtils {
     private static final String[] OPTION_ENV_VARS = {
             "_JAVA_OPTIONS", "JAVA_TOOL_OPTIONS", "_JAVA_TOOL_OPTIONS", "JDK_JAVA_OPTIONS"
     };
+
+    /**
+     * Where a class is loaded from.
+     *
+     * @since 2.3.0
+     */
+    public enum Origin {
+        /**
+         * A directory of loose class files, typical of IDE and build tool runs.
+         */
+        EXPLODED,
+        JAR,
+        /**
+         * Jar that also holds the classes of a dependency, with/without relocation.
+         */
+        SHADED,
+        /**
+         * Jar inside another jar, seen in Cleanroom, Spring Boot, One-JAR or Eclipse's jar-in-jar loader.
+         */
+        NESTED,
+        /**
+         * Named JPMS/runtime image module.
+         */
+        MODULE
+    }
+
+    // Jar-in-jar loaders use their own protocol, or chain a second "!/" into the URL
+    private static final Pattern NESTED_URL = Pattern.compile("^(?:jar:)?(?:nested|onejar|rsrc):|!/.*!/");
+
+    /**
+     * Checks whether a JDWP agent is attached, which is how debuggers connect to the JVM.
+     *
+     * @since 2.3.0
+     */
+    public static boolean isDebugging() {
+        for (String argument : ManagementFactory.getRuntimeMXBean().getInputArguments()) {
+            if (argument.startsWith("-agentlib:jdwp") || argument.startsWith("-Xrunjdwp")
+                    || (argument.startsWith("-agentpath:") && argument.contains("jdwp"))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Checks whether the JVM was started with {@code --enable-preview}.
+     *
+     * @since 2.3.0
+     */
+    public static boolean hasEnabledPreview() {
+        return ManagementFactory.getRuntimeMXBean().getInputArguments().contains("--enable-preview");
+    }
+
+    /**
+     * Lists the jars passed through {@code -javaagent}, without their options.
+     * Agents attached at runtime through the Attach API are not listed.
+     *
+     * @since 2.3.0
+     */
+    public static List<Path> getJavaAgents() {
+        List<Path> agents = new ArrayList<>();
+        for (String argument : ManagementFactory.getRuntimeMXBean().getInputArguments()) {
+            if (argument.startsWith("-javaagent:")) {
+                int options = argument.indexOf('=');
+                agents.add(Paths.get(options == -1 ? argument.substring(11) : argument.substring(11, options)));
+            }
+        }
+        return agents;
+    }
+
+    /**
+     * Determines where JavaUtils itself is loaded from.
+     * It counts as {@link Origin#SHADED} when relocated, or when platform-utils sits in the same jar.
+     *
+     * @since 2.3.0
+     */
+    public static Origin runningFrom() {
+        String original = String.join(".", "com", "cleanroommc", "javautils", "JavaUtils");
+        if (!JavaUtils.class.getName().equals(original)) {
+            Origin origin = runningFrom(JavaUtils.class);
+            return origin == Origin.JAR ? Origin.SHADED : origin;
+        }
+        return runningFrom(JavaUtils.class, Platform.class);
+    }
+
+    /**
+     * Determines where a class is loaded from. Never returns {@link Origin#SHADED}, see {@link #runningFrom(Class, Class)}.
+     *
+     * @throws IllegalArgumentException if the class has no class file resource, e.g. a hidden class
+     * @since 2.3.0
+     */
+    public static Origin runningFrom(Class<?> clazz) {
+        try {
+            Object module = Class.class.getMethod("getModule").invoke(clazz);
+            if ((Boolean) module.getClass().getMethod("isNamed").invoke(module)) {
+                return Origin.MODULE;
+            }
+        } catch (ReflectiveOperationException ignored) {
+            // Java 8 has no modules
+        }
+        String url = classUrl(clazz);
+        if (NESTED_URL.matcher(url).find()) {
+            return Origin.NESTED;
+        }
+        return url.startsWith("jar:") ? Origin.JAR : Origin.EXPLODED;
+    }
+
+    /**
+     * Determines where a class is loaded from, reporting {@link Origin#SHADED} when it shares its jar with {@code dependency}.
+     * Pick a dependency class that the class' own artifact never contains.
+     *
+     * @throws IllegalArgumentException if either class has no class file resource, e.g. a hidden class
+     * @since 2.3.0
+     */
+    public static Origin runningFrom(Class<?> clazz, Class<?> dependency) {
+        Origin origin = runningFrom(clazz);
+        if (origin == Origin.JAR) {
+            String jar = classUrl(clazz);
+            String dependencyJar = classUrl(dependency);
+            if (dependencyJar.startsWith("jar:") && jar.substring(0, jar.indexOf("!/")).equals(dependencyJar.substring(0, dependencyJar.indexOf("!/")))) {
+                return Origin.SHADED;
+            }
+        }
+        return origin;
+    }
 
     public static File currentJarLocation() throws IOException {
         return jarLocationOf(JavaUtils.class);
@@ -103,6 +230,14 @@ public final class JavaUtils {
 
     public static JavaInstall parseInstall(String location) throws IOException {
         return parseInstall(Paths.get(location));
+    }
+
+    private static String classUrl(Class<?> clazz) {
+        URL url = clazz.getResource('/' + clazz.getName().replace('.', '/') + ".class");
+        if (url == null) {
+            throw new IllegalArgumentException("No class file found for " + clazz.getName());
+        }
+        return url.toString();
     }
 
     private static Path[] determine(Path path) throws IOException {
