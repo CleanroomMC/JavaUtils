@@ -14,6 +14,7 @@ import java.lang.management.ManagementFactory;
 import java.net.MalformedURLException;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -156,6 +157,44 @@ public final class JavaUtils {
             }
         }
         return origin;
+    }
+
+    /**
+     * Writes arguments into a file that Java 9+ launchers expand when given {@code @file}.
+     * Use it to keep long command lines, such as large classpaths, under OS limits (32767 characters on Windows).
+     * Java 8 launchers do not read argument files, and launchers stop expanding them after the main class.
+     *
+     * @param file      where to write the arguments
+     * @param arguments JVM options, main class and program arguments, in launch order
+     * @return the {@code @file} argument to pass to the launcher in place of {@code arguments}
+     * @since 2.3.0
+     */
+    public static String writeArgFile(Path file, List<String> arguments) throws IOException {
+        StringBuilder builder = new StringBuilder();
+        for (String argument : arguments) {
+            if (!argument.isEmpty() && !argument.matches(".*[\\s\"'#\\\\].*")) {
+                builder.append(argument);
+            } else {
+                builder.append('"');
+                for (char c : argument.toCharArray()) {
+                    switch (c) {
+                        case '"': builder.append("\\\""); break;
+                        case '\\': builder.append("\\\\"); break;
+                        case '\n': builder.append("\\n"); break;
+                        case '\r': builder.append("\\r"); break;
+                        case '\t': builder.append("\\t"); break;
+                        case '\f': builder.append("\\f"); break;
+                        default: builder.append(c);
+                    }
+                }
+                builder.append('"');
+            }
+            builder.append(System.lineSeparator());
+        }
+        // The launcher reads the file in the native encoding, which differs from file.encoding on Windows and JDK 18+
+        String encoding = System.getProperty("sun.jnu.encoding");
+        Files.write(file, builder.toString().getBytes(encoding == null ? Charset.defaultCharset() : Charset.forName(encoding)));
+        return "@" + file.toAbsolutePath();
     }
 
     public static File currentJarLocation() throws IOException {
