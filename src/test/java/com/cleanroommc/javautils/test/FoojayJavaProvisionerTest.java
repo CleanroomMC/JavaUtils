@@ -425,7 +425,7 @@ public class FoojayJavaProvisionerTest {
     }
 
     @Test
-    public void bundlesJavaFXReadsTheReleaseModules(@TempDir Path dir) throws Throwable {
+    public void bundlesJavaFXReadsTheReleaseModules(@TempDir Path dir) throws IOException {
         Path modern = Files.createDirectories(dir.resolve("modern"));
         Files.write(modern.resolve("release"), "JAVA_VERSION=\"25\"\nMODULES=\"java.base javafx.base javafx.graphics\"\n".getBytes(StandardCharsets.UTF_8));
         Path plain = Files.createDirectories(dir.resolve("plain"));
@@ -470,16 +470,20 @@ public class FoojayJavaProvisionerTest {
         assertEquals(1, found.size());
     }
 
-    private boolean bundlesJavaFX(Path home) throws Throwable {
-        return (boolean) invokeStatic("bundlesJavaFX", new Class<?>[] { Path.class }, home);
+    private static boolean bundlesJavaFX(Path home) {
+        return install(home, 25, JavaDistro.UNKNOWN, true).javaFx();
     }
 
     private static JavaInstall install(int major, JavaDistro distro, boolean jdk) {
+        return install(Paths.get("."), major, distro, jdk);
+    }
+
+    private static JavaInstall install(Path home, int major, JavaDistro distro, boolean jdk) {
         JavaVersion version = JavaVersion.parseOrThrow(major);
         return new JavaInstall() {
             @Override
             public Path home() {
-                return Paths.get(".");
+                return home;
             }
 
             @Override
