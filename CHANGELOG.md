@@ -1,5 +1,25 @@
 # Changelog
 
+## 2.3.0 - 2026-11-22
+
+## Feature
+
+- JavaAgent object for JavaUtils.getJavaAgents() *[commit by [@Rongmario](https://github.com/Rongmario) in [37d4356](https://github.com/CleanroomMC/JavaUtils/commit/37d435615f4ff9008c1ab30ff3411b88b2fed68c)]*
+- Add JavaUtils.writeArgFile() for launcher @argfiles *[commit by [@Rongmario](https://github.com/Rongmario) in [0524986](https://github.com/CleanroomMC/JavaUtils/commit/0524986c71a68fc70578bde645e395df019fdfef)]*
+- Add JavaUtils runtime queries for debug, preview, agents and code origin *[commit by [@Rongmario](https://github.com/Rongmario) in [32460c9](https://github.com/CleanroomMC/JavaUtils/commit/32460c913cdb1b6230be063a7caecdc1993e09ff)]*
+- Add JavaInstall.jfr() to detect Java Flight Recorder *[commit by [@Rongmario](https://github.com/Rongmario) in [32e91c2](https://github.com/CleanroomMC/JavaUtils/commit/32e91c21b682144a1bd79dfba674c8ba61050774)]*
+- Add JavaInstall.javaFx() to detect bundled JavaFX *[commit by [@Rongmario](https://github.com/Rongmario) in [a51e8ba](https://github.com/CleanroomMC/JavaUtils/commit/a51e8bad3c5b1497976d9f6311a056496436abab)]*
+
+## Testing
+
+- Check JavaFX detection through JavaInstall.javaFx() *[commit by [@Rongmario](https://github.com/Rongmario) in [b8d24a9](https://github.com/CleanroomMC/JavaUtils/commit/b8d24a9904882eb1088bc5c027b6add97bba0733)]*
+
+## Build and Dependencies
+
+- **deps**: Update platform utils to v3 *[commit by [@Rongmario](https://github.com/Rongmario) in [5cd6d70](https://github.com/CleanroomMC/JavaUtils/commit/5cd6d70f8c56ba7f206f8d093164cab00e1b1fcd)]*
+
+**Full Changelog**: https://github.com/CleanroomMC/JavaUtils/compare/2.2.0...2.3.0
+
 ## 2.2.0 - 2026-10-09
 
 ## Feature
